@@ -1,0 +1,54 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="WinMain.cpp" />
+    <ClCompile Include="Camera.cpp">
+      <Filter>Camera</Filter>
+    </ClCompile>
+    <ClCompile Include="window_functions.cpp">
+      <Filter>Windows Helpers</Filter>
+    </ClCompile>
+    <ClCompile Include="Trixel.cpp">
+      <Filter>Trixel</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="Camera.h">
+      <Filter>Camera</Filter>
+    </ClInclude>
+    <ClInclude Include="platform_common.h">
+      <Filter>UTILS/MISC</Filter>
+    </ClInclude>
+    <ClInclude Include="Vector.h">
+      <Filter>UTILS/MISC</Filter>
+    </ClInclude>
+    <ClInclude Include="window_functions.h">
+      <Filter>Windows Helpers</Filter>
+    </ClInclude>
+    <ClInclude Include="Trixel.h">
+      <Filter>Trixel</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="Camera">
+      <UniqueIdentifier>{79b5df87-714f-4fbc-9ac8-cf83fed57a97}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="UTILS/MISC">
+      <UniqueIdentifier>{7a96c175-f15d-46a2-a95a-4d476bdc83c0}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Windows Helpers">
+      <UniqueIdentifier>{f2819046-7434-4463-820a-91658a7ea547}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Trixel">
+      <UniqueIdentifier>{7c0c41c8-5299-44d9-8862-d5116c2693e2}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <CudaCompile Include="Camera.cu">
+      <Filter>Camera</Filter>
+    </CudaCompile>
+    <CudaCompile Include="Trixel.cu">
+      <Filter>Trixel</Filter>
+    </CudaCompile>
+  </ItemGroup>
+</Project>
