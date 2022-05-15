@@ -11,6 +11,12 @@
     <ClCompile Include="Trixel.cpp">
       <Filter>Trixel</Filter>
     </ClCompile>
+    <ClCompile Include="read_ply.cpp">
+      <Filter>UTILS/MISC</Filter>
+    </ClCompile>
+    <ClCompile Include="vector.cpp">
+      <Filter>UTILS/MISC</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h">
@@ -27,6 +33,12 @@
     </ClInclude>
     <ClInclude Include="Trixel.h">
       <Filter>Trixel</Filter>
+    </ClInclude>
+    <ClInclude Include="vector.cuh">
+      <Filter>UTILS/MISC</Filter>
+    </ClInclude>
+    <ClInclude Include="sort.h">
+      <Filter>UTILS/MISC</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>
@@ -50,5 +62,11 @@
     <CudaCompile Include="Trixel.cu">
       <Filter>Trixel</Filter>
     </CudaCompile>
+    <CudaCompile Include="vector.cu">
+      <Filter>UTILS/MISC</Filter>
+    </CudaCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="dump.ply" />
   </ItemGroup>
 </Project>

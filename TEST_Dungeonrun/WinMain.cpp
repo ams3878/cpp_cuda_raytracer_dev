@@ -1,16 +1,19 @@
 #include "window_functions.h"
 #include "Camera.h"
 #include "Trixel.h"
-#ifndef CUDA_KERNEL
+#include "sort.h"
+#include "Vector.h"
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include <stdio.h>
-#endif
+
 static bool* g_running = (bool*)malloc(sizeof(bool));
 static Input* g_input = new Input();
 struct resolution { u32 h; u32 w; double ar; } g_window_res, g_render_res;
 #define GLOBALINPUT g_input
 static  BITMAPINFO g_bitmap_info;
+
+void read_ply(const char* file_name, double** point_list, u64* num_tri, double** vert_list, u64* num_vert);
 
 
 LRESULT CALLBACK window_callback(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
@@ -42,6 +45,8 @@ LRESULT CALLBACK window_callback(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
 
 int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
 {
+
+
     WNDCLASS* main_window_class = (WNDCLASS*)malloc(sizeof(WNDCLASS));
     initialize_hwnd_class(main_window_class, window_callback);
     HWND window = CreateWindow(main_window_class->lpszClassName, _T("Dungeon_Run"), WS_OVERLAPPEDWINDOW | WS_VISIBLE, CW_USEDEFAULT, CW_USEDEFAULT, 0, 0, 0, 0, hInstance, 0); // Create Window  
@@ -59,26 +64,51 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
     //**TODO** solve
     g_render_res.w =  g_window_res.w;
     g_render_res.h = g_window_res.h;
+    g_render_res.ar = g_window_res.ar;
+
     Camera* main_cam = new Camera(g_render_res.w, g_render_res.h, // res_w, res_h
         g_render_res.ar * .024, .024, .055, // f_w, f_h, focal_len
-        0.0, 0.0, -40.0, // position
-        0.0, 0.0, 0.0, // look at
+        0.0, 0.0, -1, // position
+        0.0, 0.075, 0.0, // look at
         0.0, 1.0, 0.0// up
     );
-    //TEMP TRIXEL LIST
-    double points_for_trixels[9];
-    u32 color_for_trixels[1];
-    color_for_trixels[0] = 42300;
-    points_for_trixels[0] = 0.0;    points_for_trixels[1] = 0.0;    points_for_trixels[2] = 0.0;
-    points_for_trixels[3] = -20.0;    points_for_trixels[4] = -20.0;    points_for_trixels[5] = 0.0;
-    points_for_trixels[6] = 20.0;    points_for_trixels[7] = -20.0;    points_for_trixels[8] = 0.0;
+    double* points_for_trixels = 0;
+    double* vertices_for_trixels = 0;
+    u32* color_for_trixels = 0;
+    u64 num_trixels = 0;
+    u64 num_trixel_vert = 0;
 
-    Trixel* trixel_list = new Trixel(1, points_for_trixels, color_for_trixels);
-    trixel_list->init_camera_trixel_data(main_cam);
+    int test_list_switch = 0;
+    if (test_list_switch == 0) {
+        read_ply("dump.ply", &points_for_trixels, &num_trixels, &vertices_for_trixels, &num_trixel_vert);
+        //TEMP TRIXEL LIST
+        color_for_trixels = (u32*)malloc(sizeof(u32) * num_trixels);
+    }else if(test_list_switch == 1) {
+        num_trixels = 1;
+        num_trixel_vert = 3;
+        points_for_trixels = (double*)malloc(sizeof(double) * 9 * num_trixels);
+        vertices_for_trixels = points_for_trixels;
+        color_for_trixels = (u32*)malloc(sizeof(u32) * num_trixels);
+        points_for_trixels[0] = 10.0; points_for_trixels[1] = 13.0; points_for_trixels[2] = 0.0;
+        points_for_trixels[3] = -20.0; points_for_trixels[4] = -40.0; points_for_trixels[5] = 450.0;
+        points_for_trixels[6] = 22.0; points_for_trixels[7] = -15.0; points_for_trixels[8] = 90.0;
+
+        color_for_trixels[0] = -1;
+    }
+
+
+
+//test merge sort
+    Trixel* trixel_list = new Trixel(num_trixels, points_for_trixels, color_for_trixels);
+    trixel_list->set_sorted_points(vertices_for_trixels, num_trixel_vert);
+
+    main_cam->init_camera_trixel_data(trixel_list, trixel_list->num_trixels);
+
+
+
     float delta_time = 0.016666f;
     LARGE_INTEGER frame_begin_time;
     QueryPerformanceCounter(&frame_begin_time);
-
     float performance_frequency;
     {
         LARGE_INTEGER perf;
@@ -95,7 +125,20 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
             fclose(dummyFile);
             FreeConsole();
         }
+        if (is_click_hold(BUTTON_W)) {
+            g_input->translate.dx = main_cam->o_prop.n.x;
+            g_input->translate.dy = main_cam->o_prop.n.y/10;
+            g_input->translate.dz = main_cam->o_prop.n.z/10;
+            main_cam->translate(g_input->translate);
+        }
+        if (is_click_hold(BUTTON_S)) {
+            g_input->translate.dx = main_cam->o_prop.n.x;      
+            g_input->translate.dy = -main_cam->o_prop.n.y/10;
+            g_input->translate.dz = -main_cam->o_prop.n.z/10;
+            main_cam->translate(g_input->translate);
+        }
         trixel_list->intersect_trixels(main_cam);
+        main_cam->color_pixels();
         StretchDIBits(hdc, 0, 0, g_render_res.w, g_render_res.h, 0, 0, g_render_res.w, g_render_res.h, (void*)main_cam->h_mem.h_color.c, &g_bitmap_info, DIB_RGB_COLORS, SRCCOPY);
 
         LARGE_INTEGER frame_end_time;
@@ -116,5 +159,5 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
         fprintf(stderr, "cudaDeviceReset failed!");
         return 1;
     }
-    return 0;
+    exit;
 }

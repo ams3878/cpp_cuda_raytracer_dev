@@ -7,8 +7,35 @@
 #include "platform_common.h"
 #include "Camera.h"
 #include "Trixel.h"
-
+#ifndef CUDA_VECTOR_H
+#include "vector.cuh" 
+#endif
 #define BLOCK_SIZE 512
+
+__global__ void color_cam_cuda(Camera::pixel_memory* cm, u32* t) {
+    u64 i = (u64)threadIdx.x + ((u64)blockIdx.x * blockDim.x);
+    u32 pattern = i % 16;
+    u64 tri_index = cm->d_rmi.index[i];
+    if (tri_index != -1) {
+        cm->d_color.c[i] = t[tri_index];
+    }else{
+    cm->d_color.argb[i].r = (u8)240;  cm->d_color.argb[i].b = (u8)0; cm->d_color.argb[i].g = (u8)0; cm->d_color.argb[i].a = (u8)0;
+    if (pattern < 8) { cm->d_color.argb[i].g = (u8)240; cm->d_color.argb[i].r = (u8)0; }
+    }
+}
+cudaError_t color_camera_device(Camera* c) {
+    cudaError_t cudaStatus;
+    // Choose which GPU to run on, change this on a multi-GPU system.
+    cudaStatus = cudaSetDevice(0);
+    if (cudaStatus != cudaSuccess) {
+        printf("cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?");
+    }
+    u64 bl_size = (c->f_prop.res.count < BLOCK_SIZE) ? c->f_prop.res.count : BLOCK_SIZE;
+    color_cam_cuda << < c->f_prop.res.count / bl_size, bl_size >> > ((Camera::pixel_memory*)c->d_mem, (c->h_trixels).trixels_list->h_mem.d_color.c);
+    staus_lauch_and_sync(color_cam_cuda);
+    return cudaStatus;
+}
+
 
 __global__ void init_cam_mem_cuda(Camera::pixel_memory* m, u64 res_w, u64 res_h, double draw_distance, double pix_w, double pix_h,
     Camera::orientation_properties::o_vector n,    Camera::orientation_properties::o_vector v,    Camera::orientation_properties::o_vector u){
@@ -19,24 +46,19 @@ __global__ void init_cam_mem_cuda(Camera::pixel_memory* m, u64 res_w, u64 res_h,
     u32 pattern = i % 8;
 
     m->rad.d_r[i] = 0.0;    m->rad.d_g[i] = 0.0;    m->rad.d_b[i] = 0.0;
-    m->d_color.argb[i].r = (u8)240;  m->d_color.argb[i].b = (u8)0; m->d_color.argb[i].a = (u8)0;
+    m->d_color.argb[i].r = (u8)240;  m->d_color.argb[i].b = (u8)0; m->d_color.argb[i].g = (u8)0; m->d_color.argb[i].a = (u8)0;
     if(pattern < 4){ m->d_color.argb[i].g = (u8)240; m->d_color.argb[i].r = (u8)0;}
     m->norm.d_x[i] = 0.0;   m->norm.d_y[i] = 0.0;   m->norm.d_z[i] = 0.0;
     m->pnt.d_x[i] = 0.0;    m->pnt.d_y[i] = 0.0;    m->pnt.d_z[i] = 0.0;
 
-    //**TODO** These all need normalized
-    m->rmd.d_x[i] = n.x + u.x * i_x + v.x * i_y;
-    m->rmd.d_y[i] = n.y + u.y * i_x + v.y * i_y;
-    m->rmd.d_z[i] = n.z + u.z * i_x + v.z * i_y;
+
+    m->rmd.d_x[i] = n.x + u.x * i_x + v.x * i_y;    m->rmd.d_y[i] = n.y + u.y * i_x + v.y * i_y;    m->rmd.d_z[i] = n.z + u.z * i_x + v.z * i_y;
+    device_normalize_vector(&m->rmd.d_x[i], &m->rmd.d_y[i], &m->rmd.d_z[i]);
+
 
     m->d_dist.d[i] = draw_distance;
     m->d_rmi.index[i] = -1;    
 }
-cudaError_t init_camera_device_memory(Camera* c, Trixel* t) {
-    cudaError_t cudaStatus = init_camera_device_memory(c);
-
-    return cudaStatus;
-};
 
 cudaError_t init_camera_device_memory(Camera* c){
     cudaError_t cudaStatus;

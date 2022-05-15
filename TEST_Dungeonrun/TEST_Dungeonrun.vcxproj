@@ -69,7 +69,7 @@
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <AdditionalDependencies>cudart_static.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <CudaCompile>
@@ -78,20 +78,28 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <CudaCompile Include="Camera.cu" />
+    <CudaCompile Include="vector.cu" />
     <CudaCompile Include="Trixel.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="read_ply.cpp" />
     <ClCompile Include="Trixel.cpp" />
+    <ClCompile Include="vector.cpp" />
     <ClCompile Include="WinMain.cpp" />
     <ClCompile Include="window_functions.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="sort.h" />
+    <ClInclude Include="vector.cuh" />
     <ClInclude Include="platform_common.h" />
     <ClInclude Include="Trixel.h" />
     <ClInclude Include="Vector.h" />
     <ClInclude Include="window_functions.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="dump.ply" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

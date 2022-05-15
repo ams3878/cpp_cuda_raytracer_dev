@@ -1,24 +1,26 @@
 #pragma once
-#include "platform_common.h"
+#ifndef TRIXEL_H
+#define TRIXEL_H
 #include "Vector.h"
-#ifndef CUDA_KERNEL
-#define CUDA_KERNEL
 #include "cuda_runtime.h"
-#include "device_launch_parameters.h"
-#include <stdio.h>
-#endif
-#include "Camera.h"
-struct Trixel;
-cudaError_t intersect_trixels_device(Trixel* t, Camera* c);
-cudaError_t init_trixels_device_memory(Trixel* t);
-cudaError_t init_camera_trixel_device_memory(Trixel* t, Camera* C);
+#include "sort.h"
 
+struct Trixel;
+struct Camera;
+extern "C" cudaError_t intersect_trixels_device(Trixel * t, Camera * c);
+extern "C" cudaError_t init_trixels_device_memory(Trixel* t);
+struct trixel_point_xyz { double x; double y; double z; };
 
 class Trixel
 {
+	trixel_point_xyz* sorted_x_points;
+	trixel_point_xyz* sorted_y_points;
+	trixel_point_xyz* sorted_z_points;
+	u64 num_vertices;
 public:
 	u64 num_trixels;
 	double* d_points_init_data;
+
 	struct trixel_memory {
 		struct points { double x; double y; double z; }*h_p1, *d_p1;
 		struct edges {
@@ -27,6 +29,8 @@ public:
 		struct surface_normals { double* x; double* y; double* z; }d_n;
 		struct color { union { struct { u8 b; u8 g; u8 r; u8 a; }*argb; u32* c; }; }d_color;
 	}h_mem;void* d_mem;
+
+	struct k_d_tree {}tree;
 
 	Trixel(u64 num_t, double* points_data, u32* color_data) {
 		num_trixels = num_t;
@@ -52,32 +56,34 @@ public:
 		cudaMemcpy(d_mem, &h_mem, sizeof(trixel_memory), cudaMemcpyHostToDevice);
 
 
-		cudaMalloc((void**)&d_points_init_data, sizeof(double) * num_trixels);
-		cudaMemcpy(d_points_init_data, points_data, sizeof(double) * num_trixels, cudaMemcpyHostToDevice);
+		cudaMalloc((void**)&d_points_init_data, sizeof(double) * num_trixels * 3 * 3);
+		cudaMemcpy(d_points_init_data, points_data, sizeof(double) * num_trixels * 3 * 3, cudaMemcpyHostToDevice);
 
 		cudaMemcpy(h_mem.d_color.c, color_data, sizeof(u32) * num_trixels, cudaMemcpyHostToDevice);
 
 		init_trixels_device_memory(this);
 	};
-	cudaError_t init_camera_trixel_data(Camera* c) {
-		cudaMalloc((void**)&c->h_trixels.d_q.x, sizeof(double) * num_trixels);
-		cudaMalloc((void**)&c->h_trixels.d_q.y, sizeof(double) * num_trixels);
-		cudaMalloc((void**)&c->h_trixels.d_q.z, sizeof(double) * num_trixels);
 
-		cudaMalloc((void**)&(c->h_trixels.d_t.x), sizeof(double) * num_trixels);
-		cudaMalloc((void**)&c->h_trixels.d_t.y, sizeof(double) * num_trixels);
-		cudaMalloc((void**)&c->h_trixels.d_t.z, sizeof(double) * num_trixels);
+	int set_sorted_points(double* vertex_list, u64 num_vert) {
+		num_vertices = num_vert;
+		trixel_point_xyz* w_list = (trixel_point_xyz*)malloc(sizeof(trixel_point_xyz) * num_vert);
 
-		cudaMalloc((void**)&c->h_trixels.d_w, sizeof(double) * num_trixels);
+		sorted_x_points = (trixel_point_xyz*)malloc(sizeof(trixel_point_xyz) * num_vert);
+		cudaMemcpy(sorted_x_points, vertex_list, sizeof(trixel_point_xyz) * num_vert, cudaMemcpyHostToHost);
+		merge_sort(sorted_x_points, w_list, num_vert , SORT_X_TAG);
 
-		cudaMalloc((void**)&(c->d_trixels), sizeof(trixel_memory));
-		cudaMemcpy(c->d_trixels, &(c->h_trixels), sizeof(trixel_memory), cudaMemcpyHostToDevice);
+		sorted_y_points = (trixel_point_xyz*)malloc(sizeof(trixel_point_xyz) * num_vert);
+		cudaMemcpy(sorted_y_points, vertex_list, sizeof(trixel_point_xyz) * num_vert, cudaMemcpyHostToHost);
+		merge_sort(sorted_y_points, w_list, num_vert , SORT_Y_TAG);
 
-		return init_camera_trixel_device_memory(this, c);
+		sorted_z_points = (trixel_point_xyz*)malloc(sizeof(trixel_point_xyz) * num_vert);
+		cudaMemcpy(sorted_z_points, vertex_list, sizeof(trixel_point_xyz) * num_vert, cudaMemcpyHostToHost);
+		merge_sort(sorted_z_points, w_list, num_vert , SORT_Z_TAG);
+
+		return 0;
 	}
 	cudaError_t intersect_trixels(Camera* c) {
-		return intersect_trixels_device(this, c);
-	}
+		return intersect_trixels_device(this, c);	}
 };
 
-
+#endif

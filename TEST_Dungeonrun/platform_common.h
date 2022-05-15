@@ -50,12 +50,9 @@ public:
     Button buttons[BUTTON_COUNT];
     //Render_State* selected_hud_obj;
     //Render_Object_Container* selected_world_obj;
-    double translate[3];
+    struct translate_vector { double dx; double dy; double dz; }translate;
     int selected_triangle = -1;
-    Input() { 
-        translate[0] = 0;
-        translate[1] = 0;
-        translate[2] = 0;
+    Input() { translate.dx = 0;  translate.dy = 0;  translate.dz = 0;
     }
 
   };
@@ -80,6 +77,6 @@ case msg: {\
   GLOBALINPUT->buttons[b].p_y = y_pos;\
 } break;
 #define is_button_release(b) !GLOBALINPUT->buttons[b].is_down && GLOBALINPUT->buttons[b].changed
-#define is_click_select(b) GLOBALINPUT->buttons[b].is_down and GLOBALINPUT->buttons[b].changed
-#define is_click_hold(b) GLOBALINPUT->buttons[b].is_down and !GLOBALINPUT->buttons[b].changed
+#define is_click_select(b) GLOBALINPUT->buttons[b].is_down && GLOBALINPUT->buttons[b].changed
+#define is_click_hold(b) GLOBALINPUT->buttons[b].is_down && !GLOBALINPUT->buttons[b].changed
 #endif

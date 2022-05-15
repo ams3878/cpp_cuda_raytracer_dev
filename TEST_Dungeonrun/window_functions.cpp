@@ -23,6 +23,8 @@ u32 initialize_hwnd(HWND* hwn, u8 wclass) {
     MONITORINFO mi = { sizeof(mi) };
     GetMonitorInfo(MonitorFromWindow(*hwn, MONITOR_DEFAULTTOPRIMARY), &mi);
     SetWindowPos(*hwn, HWND_TOP, (mi.rcMonitor.right - mi.rcMonitor.left) / 4, (mi.rcMonitor.bottom - mi.rcMonitor.top) / 4, (mi.rcMonitor.right - mi.rcMonitor.left)/2, (mi.rcMonitor.bottom - mi.rcMonitor.top)/2, SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+    //SetWindowPos(*hwn, HWND_TOP,0, 0, (mi.rcMonitor.right - mi.rcMonitor.left) , (mi.rcMonitor.bottom - mi.rcMonitor.top), SWP_NOOWNERZORDER | SWP_FRAMECHANGED);
+
   }break;
   }
   return 0;

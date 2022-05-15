@@ -1,16 +1,14 @@
 #pragma once
-#include "platform_common.h"
+#ifndef CAMERA_H
+#define CAMERA_H
 #include "Vector.h"
-#ifndef CUDA_KERNEL
-#define CUDA_KERNEL
 #include "cuda_runtime.h"
-#include "device_launch_parameters.h"
-#include <stdio.h>
-#endif
 struct Camera;
 struct Trixel;
-cudaError_t init_camera_device_memory(Camera* c);
-cudaError_t init_camera_device_memory(Camera* c, Trixel* t);
+extern "C" cudaError_t init_camera_device_memory(Camera* c);
+extern "C" cudaError_t init_camera_trixel_device_memory(Trixel * t, Camera * C);
+extern "C" cudaError_t color_camera_device(Camera * c);
+
 
 class Camera
 {
@@ -54,6 +52,7 @@ public:
 	struct trixel_memory {
 		struct trixel_vector { double* x; double* y; double* z; }d_t, d_q;
 		double* d_w = NULL;
+		Trixel* trixels_list;
 	}h_trixels; void* d_trixels;
 
 
@@ -101,10 +100,10 @@ public:
 		o_prop.v_mod.y = o_prop.v.y * f_prop.pix.h;
 		o_prop.v_mod.z = o_prop.v.z * f_prop.pix.h;
 		double* temp_u = normalize_Vector(la_x - p_x, la_y - p_y, la_z - p_z);
-		cross_Vector(temp_u, temp_v);
-		o_prop.u.x = temp_u[0];
-		o_prop.u.y = temp_u[1];
-		o_prop.u.z = temp_u[2];
+		cross_Vector(temp_v, temp_u);
+		o_prop.u.x = temp_v[0];
+		o_prop.u.y = temp_v[1];
+		o_prop.u.z = temp_v[2];
 		o_prop.u_mod.x = o_prop.u.x * f_prop.pix.w;
 		o_prop.u_mod.y = o_prop.u.y * f_prop.pix.w;
 		o_prop.u_mod.z = o_prop.u.z * f_prop.pix.w;
@@ -115,9 +114,9 @@ public:
 		if (!(f_prop.res.h & (u64)1)) { adjust_y -= .5; } //move vpd down half pixel if even
 		if (!(f_prop.res.w & (u64)1)) { adjust_x -= .5; } //move vpd left half pixel if even
 	
-		o_prop.n_mod.x = o_prop.n.x - (o_prop.v_mod.x * adjust_y) + (o_prop.u_mod.x * adjust_x);
-		o_prop.n_mod.y = o_prop.n.y - (o_prop.v_mod.y * adjust_y) + (o_prop.u_mod.y * adjust_x);
-		o_prop.n_mod.z = o_prop.n.z - (o_prop.v_mod.z * adjust_y) + (o_prop.u_mod.z * adjust_x);
+		o_prop.n_mod.x = (o_prop.n.x * fclen) - (o_prop.v_mod.x * adjust_y) - (o_prop.u_mod.x * adjust_x);
+		o_prop.n_mod.y = (o_prop.n.y * fclen) - (o_prop.v_mod.y * adjust_y) - (o_prop.u_mod.y * adjust_x);
+		o_prop.n_mod.z = (o_prop.n.z * fclen) - (o_prop.v_mod.z * adjust_y) - (o_prop.u_mod.z * adjust_x);
 
 		r_prop.draw_distance = 400;
 		r_prop.sample_rate = 0;
@@ -152,6 +151,33 @@ public:
 
 		init_camera_device_memory(this);
 	};
+	cudaError_t init_camera_trixel_data(Trixel* t, int num_trixels) {
+		cudaMalloc((void**)&h_trixels.d_q.x, sizeof(double) * num_trixels);
+		cudaMalloc((void**)&h_trixels.d_q.y, sizeof(double) * num_trixels);
+		cudaMalloc((void**)&h_trixels.d_q.z, sizeof(double) * num_trixels);
+
+		cudaMalloc((void**)&(h_trixels.d_t.x), sizeof(double) * num_trixels);
+		cudaMalloc((void**)&h_trixels.d_t.y, sizeof(double) * num_trixels);
+		cudaMalloc((void**)&h_trixels.d_t.z, sizeof(double) * num_trixels);
+
+		cudaMalloc((void**)&h_trixels.d_w, sizeof(double) * num_trixels);
+		h_trixels.trixels_list = t;
+
+		cudaMalloc((void**)&(d_trixels), sizeof(trixel_memory));
+		cudaMemcpy(d_trixels, &(h_trixels), sizeof(trixel_memory), cudaMemcpyHostToDevice);
+		return update_camera_trixel_data();
+	}
+
+	cudaError_t update_camera_trixel_data() {
+		return init_camera_trixel_device_memory(h_trixels.trixels_list, this);
+	}
+
+	cudaError_t translate(Input::translate_vector tv) {
+		o_prop.pos.x += tv.dx; o_prop.pos.y += tv.dy;	o_prop.pos.z += tv.dz;
+		return update_camera_trixel_data();
+	};
+
+	cudaError_t color_pixels() { return color_camera_device(this); }
+
 };
-
-
+#endif
