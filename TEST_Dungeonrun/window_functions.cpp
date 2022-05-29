@@ -49,7 +49,10 @@ u32 peek_message_wrapper(HWND* wind, Input** input_ptr) {
         process_button(BUTTON_W, 'W');
         process_button(BUTTON_A, 'A');
         process_button(BUTTON_D, 'D');
-        process_button(BUTTON_S, 'S'); 
+        process_button(BUTTON_S, 'S');
+        process_button(BUTTON_R, 'R');
+        process_button(BUTTON_Q, 'Q');
+        process_button(BUTTON_E, 'E');
         process_button(BUTTON_LEFT, VK_LEFT);
         process_button(BUTTON_RIGHT, VK_RIGHT);
         process_button(BUTTON_ENTER, VK_RETURN);

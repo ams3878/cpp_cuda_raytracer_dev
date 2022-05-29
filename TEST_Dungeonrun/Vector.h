@@ -2,11 +2,13 @@
 #ifndef VECTOR_H
   #define VECTOR_H
   #include "platform_common.h"
-#define HOST_EPSILON_SINGLE 1e-300
+#define HOST_EPSILON_SINGLE 1e-30
 #define VECTOR_NO_TAG 0
 #define VECTOR_X_TAG 1
 #define VECTOR_Y_TAG 2
 #define VECTOR_Z_TAG 3
+
+struct vector_xyz { double x; double y; double z; };
 
   template <typename T>  T* normalize_Vector(T vx, T vy, T vz);
 #define _normalize_Vector(v) normalize_Vector(v[0],v[1],v[2]);

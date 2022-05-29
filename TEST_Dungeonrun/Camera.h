@@ -3,10 +3,13 @@
 #define CAMERA_H
 #include "Vector.h"
 #include "cuda_runtime.h"
-struct Camera;
-struct Trixel;
+#include <math.h>
+class Camera;
+class Trixel;
 extern "C" cudaError_t init_camera_device_memory(Camera* c);
-extern "C" cudaError_t init_camera_trixel_device_memory(Trixel * t, Camera * C);
+extern "C" cudaError_t init_camera_trixel_device_memory(Trixel* t, Camera* c);
+extern "C" cudaError_t init_camera_voxel_device_memory(Trixel* t, Camera* c);
+extern "C" cudaError_t update_camera_voxel_device_memory(Input::translate_vector tv, Camera * c);
 extern "C" cudaError_t color_camera_device(Camera * c);
 
 
@@ -18,22 +21,26 @@ public:
 		struct resolution { u32 w; u32 h; u64 count;}res; //number of pixels
 		struct pixel { double w; double h; }pix; //size of pixels
 		struct film { double w; double h; }film; //
+		film_properties() : film(), pix(), res() {}
 	}f_prop;
 	struct lens_properties {
 		double focal_length;
+		lens_properties() : focal_length() {}
 	}l_prop;
 	struct orientation_properties {
-		struct position { double x; double y; double z; }pos; //world cords
+		vector_xyz pos; //world cords
 		struct look_at { double x; double y; double z; }la;//position
 		struct up { double x; double y; double z; }up;//position
 		// n = norm(look_at - position)     n_mod = direction at bottom left pixel
 		// v = norm(n cross ( up cross n))  v_mod = v / pixel height
 		// u = n cross v                    u_mod = u / pixel width
 		struct o_vector { double x; double y; double z;}n, v, u, n_mod, v_mod, u_mod;
+		orientation_properties() : n(), v(), u(), n_mod(), v_mod(), u_mod(), up(), la(), pos() {}
 	}o_prop;
 	struct render_properites {
 		double draw_distance;
 		int sample_rate;
+		render_properites() :sample_rate(0), draw_distance(400) {}
 	}r_prop;
 	struct pixel_memory {
 		//each value in here should be a matrix of size pix num
@@ -44,17 +51,32 @@ public:
 		struct surface_normal { double* d_x; double* d_y; double* d_z; }norm;
 		struct intersection_point { double* d_x; double* d_y; double* d_z; }pnt;
 		// Recalculate rmd on Camera rotation (look_at change)
-		struct ray_direction { double* d_x; double* d_y; double* d_z; }rmd;
+		struct ray_direction { double* d_x; double* d_y; double* d_z; }rmd,inv_rmd,sign_rmd;
 		struct intersection_object_index { s64* index; }d_rmi, h_rmi;//index into list of triangles
-	}h_mem; void* d_mem;
-
+		pixel_memory() : d_rmi(), h_rmi(), rmd(), inv_rmd(), sign_rmd(), pnt(), norm(), d_dist(), h_color(), d_color(), rad() {}
+	}h_mem; void* d_mem = NULL;
+	Trixel* trixels_list = NULL;
+	//struct voxel_traverse_list { u64 ray_index, node_tri; s32 node_cur, node_left, node_right; } *h_next_voxels_first, * h_next_voxels_second, * d_next_voxels_first, * d_next_voxels_second,*h_trixel_ray_check_list, *d_trixel_ray_check_list;
 	//Recalcuate on Camera position move
 	struct trixel_memory {
-		struct trixel_vector { double* x; double* y; double* z; }d_t, d_q;
-		double* d_w = NULL;
-		Trixel* trixels_list;
-	}h_trixels; void* d_trixels;
-
+		struct trixel_vector { double* x; double* y; double* z; trixel_vector() :x(0), y(0), z(0) {} }d_t, d_q;
+		double* d_w;
+		trixel_memory() : d_t(), d_q(), d_w(NULL) {}
+	}h_trixels; void* d_trixels = NULL;
+	struct voxel_memory {
+		struct voxel_vector {			
+			double t0x; double t0y; double t0z;
+			double t1x; double t1y; double t1z;
+		}*d_Bo;
+		double* s1, *s2;
+		u8* is_leaf;
+		struct childs { s64 left, right,triangle; }*children;
+		s32* d_voxel_index_queue;
+		u32 index_queue_offset;
+		struct flag_tag{ u8 x; u8 y; u8 z; }*cut_flags;
+		s64 num_voxels;
+		voxel_memory() : d_Bo(), s1(NULL), s2(NULL), is_leaf(0), children(NULL), d_voxel_index_queue(NULL),index_queue_offset(0),cut_flags(NULL),num_voxels(0) {}
+	}h_voxels; void* d_voxels = NULL;
 
 	Camera(s32 r_w, s32 r_h,
 		double f_w, double f_h, double fclen,
@@ -141,8 +163,17 @@ public:
 		cudaMalloc((void**)&h_mem.rmd.d_y, sizeof(double) * f_prop.res.count);
 		cudaMalloc((void**)&h_mem.rmd.d_z, sizeof(double) * f_prop.res.count);
 
+		cudaMalloc((void**)&h_mem.inv_rmd.d_x, sizeof(double) * f_prop.res.count);
+		cudaMalloc((void**)&h_mem.inv_rmd.d_y, sizeof(double) * f_prop.res.count);
+		cudaMalloc((void**)&h_mem.inv_rmd.d_z, sizeof(double) * f_prop.res.count);
+
+		cudaMalloc((void**)&h_mem.sign_rmd.d_x, sizeof(double) * f_prop.res.count);
+		cudaMalloc((void**)&h_mem.sign_rmd.d_y, sizeof(double) * f_prop.res.count);
+		cudaMalloc((void**)&h_mem.sign_rmd.d_z, sizeof(double) * f_prop.res.count);
+
 		cudaMalloc((void**)&h_mem.d_rmi.index, sizeof(s64) * f_prop.res.count);
 		h_mem.h_rmi.index = (s64*)malloc(sizeof(s64) * f_prop.res.count);
+
 
 		//This works but i think maybe better way to do this
 		cudaMalloc((void**)&d_mem, sizeof(pixel_memory));
@@ -151,7 +182,8 @@ public:
 
 		init_camera_device_memory(this);
 	};
-	cudaError_t init_camera_trixel_data(Trixel* t, int num_trixels) {
+
+	cudaError_t init_camera_trixel_data(Trixel* t, s64 num_trixels) {
 		cudaMalloc((void**)&h_trixels.d_q.x, sizeof(double) * num_trixels);
 		cudaMalloc((void**)&h_trixels.d_q.y, sizeof(double) * num_trixels);
 		cudaMalloc((void**)&h_trixels.d_q.z, sizeof(double) * num_trixels);
@@ -161,19 +193,45 @@ public:
 		cudaMalloc((void**)&h_trixels.d_t.z, sizeof(double) * num_trixels);
 
 		cudaMalloc((void**)&h_trixels.d_w, sizeof(double) * num_trixels);
-		h_trixels.trixels_list = t;
+		trixels_list = t;
 
+		
 		cudaMalloc((void**)&(d_trixels), sizeof(trixel_memory));
 		cudaMemcpy(d_trixels, &(h_trixels), sizeof(trixel_memory), cudaMemcpyHostToDevice);
-		return update_camera_trixel_data();
+		return init_camera_trixel_device_memory(trixels_list, this);
+	}
+	cudaError_t init_camera_voxel_data(Trixel* t, s64 num_voxels) {
+		cudaMalloc((void**)&h_voxels.s1, sizeof(double) * num_voxels);
+		cudaMalloc((void**)&h_voxels.s2, sizeof(double) * num_voxels);
+
+		cudaMalloc((void**)&h_voxels.children, sizeof(Camera::voxel_memory::childs) * num_voxels);
+		cudaMalloc((void**)&h_voxels.is_leaf, sizeof(u8) * num_voxels);
+
+		cudaMalloc((void**)&h_voxels.cut_flags, sizeof(Camera::voxel_memory::flag_tag) * num_voxels);
+
+		cudaMalloc((void**)&h_voxels.d_Bo, sizeof(voxel_memory::voxel_vector) * num_voxels);
+		cudaMalloc((void**)&(d_voxels), sizeof(voxel_memory));
+		
+		cudaMalloc((void**)&h_voxels.d_voxel_index_queue, sizeof(s32) * f_prop.res.count * (int)ceil(sqrt((double)num_voxels)));
+		h_voxels.index_queue_offset = (u32)ceil(sqrt((double)num_voxels));
+		h_voxels.num_voxels = num_voxels;
+		cudaMemcpy(d_voxels, &(h_voxels), sizeof(voxel_memory), cudaMemcpyHostToDevice);
+		return init_camera_voxel_device_memory(trixels_list, this);
+		
 	}
 
 	cudaError_t update_camera_trixel_data() {
-		return init_camera_trixel_device_memory(h_trixels.trixels_list, this);
+		//cam trixel data is simple a function of cam orientaion and triangel data. so update and init are same
+		//I think because the cross product needs re done and is not a simple addition to translate.
+		//Also note this funtion is in trixel.cu not camera.cu for...reasons...maybe will move later
+		return init_camera_trixel_device_memory(trixels_list, this);
 	}
-
+	cudaError_t update_camera_voxel_data(Input::translate_vector tv) {
+		return update_camera_voxel_device_memory(tv, this);
+	}
 	cudaError_t translate(Input::translate_vector tv) {
 		o_prop.pos.x += tv.dx; o_prop.pos.y += tv.dy;	o_prop.pos.z += tv.dz;
+		update_camera_voxel_data(tv);
 		return update_camera_trixel_data();
 	};
 

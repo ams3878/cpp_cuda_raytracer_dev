@@ -16,6 +16,7 @@ typedef int s32;
 typedef unsigned int u32;
 typedef long long s64;
 typedef unsigned long long u64;
+struct color { union { struct { u8 b = 3; u8 g = 3; u8 r = 6; u8 a = 0; }*argb; u32* c; };};
 
 class Button {
     HWND* wind = NULL;
@@ -35,6 +36,9 @@ public:
     BUTTON_S,
     BUTTON_A,
     BUTTON_D,
+    BUTTON_R,
+    BUTTON_E,
+    BUTTON_Q,
     BUTTON_LEFT,
     BUTTON_RIGHT,
     BUTTON_ENTER,

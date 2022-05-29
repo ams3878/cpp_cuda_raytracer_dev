@@ -68,5 +68,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="dump.ply" />
+    <None Include="dump_test.ply" />
+    <None Include="dragon_vrip_mod.ply" />
   </ItemGroup>
 </Project>

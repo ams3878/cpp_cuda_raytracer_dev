@@ -5,9 +5,11 @@
 #include "device_launch_parameters.h"
 #include "platform_common.h"
 #include <stdio.h>
-#define DEVICE_EPSILON_SINGLE 1e-300
+#define DEVICE_EPSILON_SINGLE 1e-200
+//This can be changed for release mode to bigger, but voxel traversal too many threads in debug mode
+#define BLOCK_SIZE 512 
 
-#define staus_lauch_and_sync(a) cudaStatus = cudaGetLastError();\
+#define status_lauch_and_sync(a) cudaStatus = cudaGetLastError();\
 if (cudaStatus != cudaSuccess) {printf("%s launch failed: %s\n", #a, cudaGetErrorString(cudaStatus));}\
 cudaStatus = cudaDeviceSynchronize();\
 if (cudaStatus != cudaSuccess) {printf("cudaDeviceSynchronize returned error code %d after launching %s!\n",cudaStatus, #a);};
@@ -27,10 +29,11 @@ static __device__ double device_inverse_sqrt(double x, double y, double z) {
 	u.i = 0x5FE6EB50C7B537A9 - (u.i >> 1); // 64 bit
 
 	/* The next line can be repeated any number of times to increase accuracy */
-	double old = u.x;
+	//double old = u.x;
 	u.x = u.x * (1.5f - invrs_sqrt_half * u.x * u.x);
-	while (old - u.x > DEVICE_EPSILON_SINGLE) {
-		old = u.x;
+	//while ((old - u.x) > DEVICE_EPSILON_SINGLE) {
+	for(int i = 0; i < 10; i++){
+		//old = u.x;
 		u.x = u.x * (1.5f - invrs_sqrt_half * u.x * u.x);
 	}
 	return u.x;
