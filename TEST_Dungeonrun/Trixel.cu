@@ -45,11 +45,15 @@ __global__ void intersect_voxel_cuda( Camera::pixel_memory* cm,  Camera::voxel_m
 
 	double d = 400.0;//**TODO** get rid of hardcode
 	double t0x, t1x, t0y, t1y, t0z, t1z, maxt0, mint1, dir, s1, s2;
-	s64 cni, index_front = i * cvm->index_queue_offset, index_start = index_front,tri_closest = -1;
+	s64 cni, index_front = i * cvm->index_queue_offset, index_start = i * cvm->index_queue_offset;
 	s64 tri_i;
 	double pe1, f, p_x, p_y, p_z, u, v, w;
-
 	cvm->d_voxel_index_queue[index_front] = 0;
+	//cm->d_color.rad[i].r = 0;
+	//cm->d_color.rad[i].g = 0;
+	//cm->d_color.rad[i].b = 0;
+	cm->d_rmi.index[i] = (s64)-1;
+	cm->d_dist.d[i] = d;
 
 	while ((index_front - index_start) >= 0) {
 		cni = cvm->d_voxel_index_queue[index_front--];
@@ -60,23 +64,27 @@ __global__ void intersect_voxel_cuda( Camera::pixel_memory* cm,  Camera::voxel_m
 				tm->d_edges.e2.x[tri_i], tm->d_edges.e2.y[tri_i], tm->d_edges.e2.z[tri_i]);
 			f = device_dot(p_x, p_y, p_z,
 				tm->d_edges.e1.x[tri_i], tm->d_edges.e1.y[tri_i], tm->d_edges.e1.z[tri_i]);
-			if (!(f < DEVICE_EPSILON_SINGLE && f > -DEVICE_EPSILON_SINGLE)) {
+			if (!(f < MOLLER_TRUMBORE_DEVICE_EPSILON && f > -MOLLER_TRUMBORE_DEVICE_EPSILON)) {
 				pe1 = 1.0 / f;
 				u = pe1 * device_dot(p_x, p_y, p_z,
 					ctm->d_t.x[tri_i], ctm->d_t.y[tri_i], ctm->d_t.z[tri_i]);
 				v = pe1 * device_dot(cm->rmd.d_x[i], cm->rmd.d_y[i], cm->rmd.d_z[i],
 					ctm->d_q.x[tri_i], ctm->d_q.y[tri_i], ctm->d_q.z[tri_i]);
 				w = pe1 * ctm->d_w[tri_i];
-				if ((w < d) && !((u < DEVICE_EPSILON_SINGLE) || (v < DEVICE_EPSILON_SINGLE) || ((u + v) > 1 + DEVICE_EPSILON_SINGLE) || (w < DEVICE_EPSILON_SINGLE))) {
-					d = w; 	tri_closest = tri_i;
-					cm->d_rmi.index[i] = tri_closest;
-					cm->d_dist.d[i] = d;
+				if ((w < d) && !((u < MOLLER_TRUMBORE_DEVICE_EPSILON) || (v < MOLLER_TRUMBORE_DEVICE_EPSILON) || ((u + v) > 1 + MOLLER_TRUMBORE_DEVICE_EPSILON) || (w < MOLLER_TRUMBORE_DEVICE_EPSILON))) {
+					//cm->d_rmi.index[i] = -2;
+					//return;
+					cm->d_rmi.index[i] = tri_i;
+					cm->d_dist.d[i] = w;
+					cm->d_color.rad[i].r = tm->d_color.rad[tri_i].r;
+					cm->d_color.rad[i].g = tm->d_color.rad[tri_i].g;
+					cm->d_color.rad[i].b = tm->d_color.rad[tri_i].b;
 					cm->pnt.d_x[i] = d * cm->rmd.d_x[i];
 					cm->pnt.d_y[i] = d * cm->rmd.d_y[i];
 					cm->pnt.d_z[i] = d * cm->rmd.d_z[i];
-					cm->norm.d_x[i] = tm->d_n.x[tri_closest];
-					cm->norm.d_y[i] = tm->d_n.y[tri_closest];
-					cm->norm.d_z[i] = tm->d_n.z[tri_closest];
+					cm->norm.d_x[i] = tm->d_n.x[tri_i];
+					cm->norm.d_y[i] = tm->d_n.y[tri_i];
+					cm->norm.d_z[i] = tm->d_n.z[tri_i];
 					return;
 				}
 			}	
@@ -99,35 +107,33 @@ __global__ void intersect_voxel_cuda( Camera::pixel_memory* cm,  Camera::voxel_m
 		mint1 = fmin(t1z, fmin(t1x, t1y));
 		//if ((maxt0 > t1z) || (t0z > mint1)) { return; }
 
-		if (mint1 >= maxt0 - DEVICE_EPSILON_SINGLE) {
+		if (mint1 > maxt0 - DEVICE_EPSILON_SINGLE && maxt0 > -DEVICE_EPSILON_SINGLE) {
+			//cm->d_rmi.index[i] = (s64)-2;
 			dir = ((cm->rmd.d_x[i] * cvm->cut_flags[cni].x) + (cm->rmd.d_y[i] * cvm->cut_flags[cni].y) + (cm->rmd.d_z[i] * cvm->cut_flags[cni].z));
 			maxt0 *= dir; mint1 *= dir;
 
 			s1 = cvm->s1[cni] + DEVICE_EPSILON_SINGLE;
-			s2 = cvm->s2[cni] - DEVICE_EPSILON_SINGLE;
+			s2 = cvm->s2[cni] ;
+			if (maxt0  < s2 + DEVICE_EPSILON_SINGLE) {
+				//cm->d_color.rad[i].r += .001;
 
-			if (maxt0  <= s2) {
-				if (mint1 > s2 ) { cvm->d_voxel_index_queue[++index_front] = cvm->children[cni].right; }
+				if (mint1 > s2 - DEVICE_EPSILON_SINGLE) { 
+					cvm->d_voxel_index_queue[++index_front] = cvm->children[cni].right;
+					//cm->d_color.rad[i].r += .0005;
+
+				}
 				cvm->d_voxel_index_queue[++index_front] = cvm->children[cni].left;
-
 			}
 			else {
-				if (mint1  <= s1  || maxt0 <= s1 ) { cvm->d_voxel_index_queue[++index_front] = cvm->children[cni].left; }
+				//cm->d_color.rad[i].b += .001;
+				if (mint1  < s1 || maxt0 < s1 ) {
+					cvm->d_voxel_index_queue[++index_front] = cvm->children[cni].left;
+					//cm->d_color.rad[i].r += .0005;
+
+				}
 				cvm->d_voxel_index_queue[++index_front] = cvm->children[cni].right;
-
-
 			}
 		}
-	}
-	cm->d_rmi.index[i] = tri_closest;
-	cm->d_dist.d[i] = d;
-	if (tri_closest != (s64)-1) {
-		cm->pnt.d_x[i] = d * cm->rmd.d_x[i];
-		cm->pnt.d_y[i] = d * cm->rmd.d_y[i];
-		cm->pnt.d_z[i] = d * cm->rmd.d_z[i];
-		cm->norm.d_x[i] = tm->d_n.x[tri_closest];
-		cm->norm.d_y[i] = tm->d_n.y[tri_closest];
-		cm->norm.d_z[i] = tm->d_n.z[tri_closest];
 	}
 	return;
 }
@@ -177,7 +183,7 @@ cudaError_t intersect_trixels_device(Trixel* t, Camera* c, u32 mode) {
 	}
 
 	if (mode == 0) {
-		intersect_voxel_cuda << < 1 + (u32)(c->f_prop.res.count / 256), 256 >> > (
+		intersect_voxel_cuda << < 1 + (u32)(c->f_prop.res.count / 128), 128 >> > (
 			(Camera::pixel_memory*)c->d_mem,
 			(Camera::voxel_memory*)c->d_voxels,
 			(Camera::trixel_memory*)c->d_trixels,
@@ -253,89 +259,5 @@ cudaError_t init_trixels_device_memory(Trixel* t) {
 	cudaMemcpy(t->h_mem.h_p1, t->h_mem.d_p1, t->num_trixels * sizeof(double), cudaMemcpyDeviceToHost);
 
 	return cudaStatus;
-
 }
 
-
-
-/*
-* for (int i = 0; i < (int)ceil(log2((double)t->num_trixels)); i++) {
-		intersect_voxel_cuda << < 1 + (L_rays_to_do / 512) , 512 >> > (
-			(Camera::pixel_memory*)c->d_mem,
-			(Camera::voxel_memory*)c->d_voxels,
-			c->d_next_voxels_first, L_rays_to_do);
-		cudaMemcpy(c->h_next_voxels_second, c->d_next_voxels_first, c->f_prop.res.count * 2 * sizeof(Camera::voxel_traverse_list), cudaMemcpyDeviceToHost);
-
-		for (int j = 0; j < L_rays_to_do; j++) {
-			// should be the case if either is -1 then both are -1
-			if (c->h_next_voxels_second[j].node_left == -1) {
-				c->h_trixel_ray_check_list[tri_counter].node_tri = c->h_next_voxels_second[j].node_tri;
-				c->h_trixel_ray_check_list[tri_counter++].ray_index = c->h_next_voxels_second[j].ray_index;
-			} else {
-				if (c->h_next_voxels_second[j].node_left != -2) {
-					c->h_next_voxels_first[next_L_counter].node_cur = c->h_next_voxels_second[j].node_left;
-					c->h_next_voxels_first[next_L_counter++].ray_index = c->h_next_voxels_second[j].ray_index;
-				}
-
-				if (c->h_next_voxels_second[j].node_right != -2) {
-					c->h_next_voxels_first[next_L_counter].node_cur = c->h_next_voxels_second[j].node_right;
-					c->h_next_voxels_first[next_L_counter++].ray_index = c->h_next_voxels_second[j].ray_index;
-				}
-			}
-		}
-		L_rays_to_do = next_L_counter;
-		next_L_counter = 0;
-
-		cudaMemcpy(c->d_next_voxels_first, c->h_next_voxels_first, c->f_prop.res.count * 2 * sizeof(Camera::voxel_traverse_list), cudaMemcpyHostToDevice);
-	}
-
-	cudaMemcpy(c->d_trixel_ray_check_list, c->h_trixel_ray_check_list, c->f_prop.res.count * 2 * sizeof(Camera::voxel_traverse_list), cudaMemcpyHostToDevice);
-
-intersect_tri_cuda << < 1 + (tri_counter / 512), 512 >> > (
-	(Trixel::trixel_memory*)t->d_mem,
-	(Camera::pixel_memory*)c->d_mem,
-	(Camera::trixel_memory*)c->d_trixels,
-	c->d_trixel_ray_check_list, tri_counter);
-__global__ void intersect_voxel_cuda(Camera::pixel_memory* cm, Camera::voxel_memory* cvm, Camera::voxel_traverse_list* cur_node_list, u64 max_threads) {
-	u64 index = (u64)threadIdx.x + ((u64)blockIdx.x * blockDim.x);
-	if (index >= max_threads) { return; }
-
-	double d = 400.0;//**TODO** get rid of hardcode
-	double t0x, t1x, t0y, t1y, t0z, t1z, maxt0, mint1, dir, s;
-
-	u64 i = cur_node_list[index].ray_index;
-	u64 cni = cur_node_list[index].node_cur;
-	cur_node_list[index].node_tri = cvm->children[cni].triangle;
-	cur_node_list[index].node_left = -2;
-	cur_node_list[index].node_right = -2;
-	//YAY NO BRANCHES  ???? is it worth??? NO IDEA
-	//swap t0, t1 if ray in negative direction
-	//**TODO** precomput sign * rmd to remove more operations
-	t0x = ((cvm->d_Bo[cni].t0x * (1 - cm->sign_rmd.d_x[i])) + (cvm->d_Bo[cni].t1x * (cm->sign_rmd.d_x[i]))) * cm->inv_rmd.d_x[i];
-	t1x = ((cvm->d_Bo[cni].t1x * (1 - cm->sign_rmd.d_x[i])) + (cvm->d_Bo[cni].t0x * (cm->sign_rmd.d_x[i]))) * cm->inv_rmd.d_x[i];
-
-	t0y = ((cvm->d_Bo[cni].t0y * (1 - cm->sign_rmd.d_y[i])) + (cvm->d_Bo[cni].t1y * (cm->sign_rmd.d_y[i]))) * cm->inv_rmd.d_y[i];
-	t1y = ((cvm->d_Bo[cni].t1y * (1 - cm->sign_rmd.d_y[i])) + (cvm->d_Bo[cni].t0y * (cm->sign_rmd.d_y[i]))) * cm->inv_rmd.d_y[i];
-
-	t0z = ((cvm->d_Bo[cni].t0z * (1 - cm->sign_rmd.d_z[i])) + (cvm->d_Bo[cni].t1z * (cm->sign_rmd.d_z[i]))) * cm->inv_rmd.d_z[i];
-	t1z = ((cvm->d_Bo[cni].t1z * (1 - cm->sign_rmd.d_z[i])) + (cvm->d_Bo[cni].t0z * (cm->sign_rmd.d_z[i]))) * cm->inv_rmd.d_z[i];
-	//select entrance (maxt0) and exit(mint1) planes of voxel, and then get coordinate in split direction ( t * dir)
-	//if ((t0x > t1y) || (t0y > t1x)) { return; }
-	maxt0 = fmax(t0z, fmax(t0x, t0y));
-	mint1 = fmin(t1z, fmin(t1x, t1y));
-	//if ((maxt0 > t1z) || (t0z > mint1)) { return; }
-	dir = ((cm->rmd.d_x[i] * cvm->cut_flags[cni].x) + (cm->rmd.d_y[i] * cvm->cut_flags[cni].y) + (cm->rmd.d_z[i] * cvm->cut_flags[cni].z));
-	maxt0 *= dir; mint1 *= dir;
-	if (mint1 >= maxt0) {
-		s = cvm->s_plane_offset[cni];
-
-		if (maxt0 <= s) {
-			if (mint1 > s) { cur_node_list[index].node_right = cvm->children[cni].right; }
-			cur_node_list[index].node_left = cvm->children[cni].left;
-		}
-		else {
-			if (mint1 <= s) { cur_node_list[index].node_right = cvm->children[cni].left; }
-			cur_node_list[index].node_left = cvm->children[cni].right;
-		}
-	}
-}*/

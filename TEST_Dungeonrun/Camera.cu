@@ -15,13 +15,55 @@ __global__ void color_cam_cuda(Camera::pixel_memory* cm, u32* t, u64 max_threads
     u64 i = (u64)threadIdx.x + ((u64)blockIdx.x * blockDim.x);
     if (i >= max_threads) { return; }
     u32 pattern = i % 16;
-    s64 tri_index = cm->d_rmi.index[i];
-    if (tri_index != -1) {
-        cm->d_color.c[i] = t[tri_index];
+    double sdx, sdy, sdz, dot_r_n,rx,ry,rz;
+    double phong_difuse_modifier, phong_spec_modifier;
+    double tri_cr = (double)cm->d_color.rad[i].r, tri_cg = (double)cm->d_color.rad[i].g, tri_cb = (double)cm->d_color.rad[i].b;
+    double point_rad_r = 0.0, point_rad_g = 0.0, point_rad_b = 0.0;
+    if (cm->d_rmi.index[i] >= 0) {// if ray hit an object
+        //Check Shadows
+        //for (int i = 0; i < 1; i++) {
+            //Get light to intersect point vector
+        // just put light at 2,2,2 for now
+            sdx = 2 - cm->pnt.d_x[i]; sdy = 2 - cm->pnt.d_y[i]; sdz = 2 - cm->pnt.d_z[i];
+            //in_shadow = (-1 != device_moller_trumbore(e2x, e2y, e2z, e1x, e1y, e1z, qx, qy, qz, tx, ty, tz, num_tri, w_i, sdx, sdy, sdz, &temp_rmsd));
+            if (1) {//if not in shadow do "phong"
+                //**TODO** ADD LIGHT INTESITY
+                device_normalize_vector(&sdx, &sdy, &sdz);
+                //**CAN DO EXTRA PRECALC** nxx, nxy, nyy, nyz, nzz
+                dot_r_n = device_dot(sdx, sdy, sdz, cm->norm.d_x[i], cm->norm.d_x[i], cm->norm.d_z[i]);
+                rx = (sdx - (2 * dot_r_n * cm->norm.d_x[i])) * cm->rmd.d_x[i];
+                ry = (sdy - (2 * dot_r_n * cm->norm.d_y[i])) * cm->rmd.d_y[i];
+                rz = (sdz - (2 * dot_r_n * cm->norm.d_z[i])) * cm->rmd.d_z[i];
+
+                //r = s.negate().reflect(surface_norm, hw = o_ref.blin)
+                phong_difuse_modifier = .6 * fabs(dot_r_n);
+                phong_spec_modifier = powf(fabs((rx + ry + rz)), 5) * .3;
+
+                // d_s_color = object.color * o_ref.diffuse * abs(inter.dot(s.nv, surface_norm)
+                //d_s_color += light.color * (abs(inter.dot(r.nv, v_n.nv)) **o_ref.exponent) * o_ref.specular
+
+                point_rad_r += (tri_cr * phong_difuse_modifier) + (1 * phong_spec_modifier);
+                point_rad_g += (tri_cg * phong_difuse_modifier) + (1 * phong_spec_modifier);
+                point_rad_b += (tri_cb * phong_difuse_modifier) + (1 * phong_spec_modifier);
+            }//END IF NOT IN SHADOW
+        //}//FOR EACH LIGHT
+       //**TODO**Basic Repro here, change later
+            double max_rad = fmax(fmax(point_rad_r, point_rad_g), point_rad_b);
+            cm->d_color.argb[i].r = (u8)((point_rad_r / max_rad) * 255);
+            cm->d_color.argb[i].g = (u8)((point_rad_g / max_rad) * 255);
+            cm->d_color.argb[i].b = (u8)((point_rad_b / max_rad) * 255);
+            cm->d_color.argb[i].a = (u8)0;
+    }
+    else if(cm->d_rmi.index[i] == -2){
+        double max_rad = fmax(fmax(tri_cr, tri_cg), tri_cb);
+        cm->d_color.argb[i].r = (u8)((tri_cr ) * 255);
+        cm->d_color.argb[i].g = (u8)((tri_cg ) * 255);
+        cm->d_color.argb[i].b = (u8)((tri_cb ) * 255);
+        cm->d_color.argb[i].a = (u8)0;
     }
     else {
-        cm->d_color.argb[i].r = (u8)240;  cm->d_color.argb[i].b = (u8)0; cm->d_color.argb[i].g = (u8)0; cm->d_color.argb[i].a = (u8)0; 
-         if (pattern < 8) { cm->d_color.argb[i].g = (u8)240; cm->d_color.argb[i].r = (u8)0; }        
+        cm->d_color.argb[i].r = (u8)240;  cm->d_color.argb[i].b = (u8)240; cm->d_color.argb[i].g = (u8)0; cm->d_color.argb[i].a = (u8)0;
+        if (pattern < 8) { cm->d_color.argb[i].g = (u8)240; cm->d_color.argb[i].r = (u8)0; }
     }
 }
 cudaError_t color_camera_device(Camera* c) {
@@ -49,8 +91,8 @@ __global__ void init_cam_mem_cuda(Camera::pixel_memory* m, u64 res_w, u64 res_h,
     u32 pattern = i % 8;
 
     m->rad.d_r[i] = 0.0;    m->rad.d_g[i] = 0.0;    m->rad.d_b[i] = 0.0;
-    m->d_color.argb[i].r = (u8)240;  m->d_color.argb[i].b = (u8)0; m->d_color.argb[i].g = (u8)0; m->d_color.argb[i].a = (u8)0;
-    if(pattern < 4){ m->d_color.argb[i].g = (u8)240; m->d_color.argb[i].r = (u8)0;}
+   // m->d_color.argb[i].r = (u8)240;  m->d_color.argb[i].b = (u8)0; m->d_color.argb[i].g = (u8)0; m->d_color.argb[i].a = (u8)0;
+    //if(pattern < 4){ m->d_color.argb[i].g = (u8)240; m->d_color.argb[i].r = (u8)0;}
     m->norm.d_x[i] = 0.0;   m->norm.d_y[i] = 0.0;   m->norm.d_z[i] = 0.0;
     m->pnt.d_x[i] = 0.0;    m->pnt.d_y[i] = 0.0;    m->pnt.d_z[i] = 0.0;
 
@@ -143,45 +185,52 @@ cudaError_t init_camera_voxel_device_memory(Trixel* t, Camera* c) {
     return cudaStatus;
 }
 
-__global__ void update_cam_voxel_mem_cuda(Camera::voxel_memory* vm, Input::translate_vector tv, u64 max_threads) {
+
+__global__ void translate_trixels_device_cuda(Trixel::trixel_memory* tm, Camera::trixel_memory* cm, Input::translate_vector a, u64 max_threads) {
+    u64 i = (u64)threadIdx.x + ((u64)blockIdx.x * blockDim.x);
+    if (i >= max_threads) { return; }
+    cm->d_t.x[i] += a.dx; cm->d_t.y[i] += a.dy;	cm->d_t.z[i] += a.dz;
+    //Still pretty sure its move calculations to unroll and try to just =+ the detla.,...but maybe precomute e1 * e2 woudl speed it up? would have to unroll and look
+    device_cross(&cm->d_q.x[i], &cm->d_q.y[i], &cm->d_q.z[i], cm->d_t.x[i], cm->d_t.y[i], cm->d_t.z[i], tm->d_edges.e1.x[i], tm->d_edges.e1.y[i], tm->d_edges.e1.z[i]);
+    cm->d_w[i] = device_dot(cm->d_q.x[i], cm->d_q.y[i], cm->d_q.z[i], tm->d_edges.e2.x[i], tm->d_edges.e2.y[i], tm->d_edges.e2.z[i]);
+}
+
+
+
+__global__ void translate_cam_voxel_mem_cuda(Camera::voxel_memory* vm, Input::translate_vector tv, u64 max_threads) {
 
     u64 i = (u64)threadIdx.x + ((u64)blockIdx.x * blockDim.x);
     if (i >= max_threads) { return; }
     //THESE VALUES ARE ALL CALCULATED AS SOME POINT IN SPACE minus THE CAMERA ORIGIN
     //So if you move the camera by  + dx...need to subtract dx from the voxel
-    vm->d_Bo[i].t0x -= tv.dx;
-    vm->d_Bo[i].t1x -= tv.dx;
-    vm->d_Bo[i].t0y -= tv.dy;
-    vm->d_Bo[i].t1y -= tv.dy;
-    vm->d_Bo[i].t0z -= tv.dz;
-    vm->d_Bo[i].t1z -= tv.dz;
+    vm->d_Bo[i].t0x -= tv.dx;    vm->d_Bo[i].t1x -= tv.dx;
+    vm->d_Bo[i].t0y -= tv.dy;    vm->d_Bo[i].t1y -= tv.dy;
+    vm->d_Bo[i].t0z -= tv.dz;    vm->d_Bo[i].t1z -= tv.dz;
 
     vm->s1[i] -= (tv.dx * (double)vm->cut_flags[i].x) + (tv.dy * (double)vm->cut_flags[i].y) + (tv.dz * (double)vm->cut_flags[i].z);
     vm->s2[i] -= (tv.dx * (double)vm->cut_flags[i].x) + (tv.dy * (double)vm->cut_flags[i].y) + (tv.dz * (double)vm->cut_flags[i].z);
 
 }
-cudaError_t update_camera_voxel_device_memory(Input::translate_vector tv, Camera* c) {
+cudaError_t transform_trixels_device(Trixel* t, Camera* c, Input::translate_vector transform_vector, u8 transform_flag) {
     cudaError_t cudaStatus;
-    // Choose which GPU to run on, change this on a multi-GPU system.
-    cudaStatus = cudaSetDevice(0);
-    if (cudaStatus != cudaSuccess) {
-        printf("cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?");
+    switch (transform_flag) {
+    case TRANSLATE_XYZ:
+        translate_trixels_device_cuda << < 1 + (u32)(t->num_trixels / BLOCK_SIZE), BLOCK_SIZE >> > ((Trixel::trixel_memory*)t->d_mem, (Camera::trixel_memory*)c->d_trixels, transform_vector, t->num_trixels);
+        break;
     }
-    update_cam_voxel_mem_cuda << < 1 + (u32)(c->h_voxels.num_voxels / BLOCK_SIZE), BLOCK_SIZE >> > (
-        (Camera::voxel_memory*)c->d_voxels,
-        tv, c->h_voxels.num_voxels);
-    // Check for any errors launching the kernel
-    cudaStatus = cudaGetLastError();
-    if (cudaStatus != cudaSuccess) {
-        printf("init_cam_voxel_cuda launch failed: %s\n", cudaGetErrorString(cudaStatus));
-    }
-
-    // cudaDeviceSynchronize waits for the kernel to finish, and returns
-    // any errors encountered during the launch.
-    cudaStatus = cudaDeviceSynchronize();
-    if (cudaStatus != cudaSuccess) {
-        printf("cudaDeviceSynchronize returned error code %d after launching init_cam_mem_cuda!\n", cudaStatus);
-    }
+    status_lauch_and_sync(scale_trixels_device_cuda);
+    return cudaStatus;
+}
+cudaError_t transform_camera_voxel_device_memory(Camera* c, Input::translate_vector tv,  u8 transform_select) {
+    cudaError_t cudaStatus;
+    switch (transform_select) {
+    case TRANSLATE_XYZ:
+        translate_cam_voxel_mem_cuda << < 1 + (u32)(c->h_voxels.num_voxels / BLOCK_SIZE), BLOCK_SIZE >> > (
+            (Camera::voxel_memory*)c->d_voxels,
+            tv, c->h_voxels.num_voxels);
+        break;
+   }
+    status_lauch_and_sync(translate_cam_voxel_mem_cuda);
     return cudaStatus;
 }
 

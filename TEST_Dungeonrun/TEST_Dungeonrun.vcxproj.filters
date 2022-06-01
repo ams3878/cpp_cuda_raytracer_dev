@@ -2,14 +2,8 @@
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <ClCompile Include="WinMain.cpp" />
-    <ClCompile Include="Camera.cpp">
-      <Filter>Camera</Filter>
-    </ClCompile>
     <ClCompile Include="window_functions.cpp">
       <Filter>Windows Helpers</Filter>
-    </ClCompile>
-    <ClCompile Include="Trixel.cpp">
-      <Filter>Trixel</Filter>
     </ClCompile>
     <ClCompile Include="read_ply.cpp">
       <Filter>UTILS/MISC</Filter>

@@ -9,8 +9,9 @@ class Trixel;
 extern "C" cudaError_t init_camera_device_memory(Camera* c);
 extern "C" cudaError_t init_camera_trixel_device_memory(Trixel* t, Camera* c);
 extern "C" cudaError_t init_camera_voxel_device_memory(Trixel* t, Camera* c);
-extern "C" cudaError_t update_camera_voxel_device_memory(Input::translate_vector tv, Camera * c);
+extern "C" cudaError_t transform_camera_voxel_device_memory(Camera * c, Input::translate_vector tv, u8 transform_select);
 extern "C" cudaError_t color_camera_device(Camera * c);
+extern "C" cudaError_t transform_trixels_device(Trixel * t, Camera * c, Input::translate_vector scale_factor, u8 transform_select);
 
 
 class Camera
@@ -46,7 +47,7 @@ public:
 		//each value in here should be a matrix of size pix num
 		// i.e each pointer should have a value alloced for each pixel
 		struct radiance { double* d_r; double* d_g; double* d_b; }rad; //Radiance at pixel
-		struct color { union  { struct { u8 b; u8 g; u8 r; u8 a; }*argb; u32* c; }; }h_color, d_color; //color at pixel
+		color h_color, d_color; //color at pixel
 		struct distance { double* d; }d_dist;
 		struct surface_normal { double* d_x; double* d_y; double* d_z; }norm;
 		struct intersection_point { double* d_x; double* d_y; double* d_z; }pnt;
@@ -149,6 +150,9 @@ public:
 		cudaMalloc((void**)&h_mem.d_color.c, sizeof(u32) * f_prop.res.count);
 		h_mem.h_color.c = (u32*)malloc(sizeof(u32) * f_prop.res.count);
 
+		cudaMalloc((void**)&h_mem.d_color.rad, sizeof(color::radiance) * f_prop.res.count);
+		h_mem.h_color.rad = (color::radiance*)malloc(sizeof(color::radiance) * f_prop.res.count);
+
 		cudaMalloc((void**)&h_mem.d_dist.d, sizeof(double) * f_prop.res.count);	
 
 		cudaMalloc((void**)&h_mem.norm.d_x, sizeof(double) * f_prop.res.count);
@@ -201,6 +205,7 @@ public:
 		return init_camera_trixel_device_memory(trixels_list, this);
 	}
 	cudaError_t init_camera_voxel_data(Trixel* t, s64 num_voxels) {
+		cudaError_t cuda_err;
 		cudaMalloc((void**)&h_voxels.s1, sizeof(double) * num_voxels);
 		cudaMalloc((void**)&h_voxels.s2, sizeof(double) * num_voxels);
 
@@ -212,27 +217,19 @@ public:
 		cudaMalloc((void**)&h_voxels.d_Bo, sizeof(voxel_memory::voxel_vector) * num_voxels);
 		cudaMalloc((void**)&(d_voxels), sizeof(voxel_memory));
 		
-		cudaMalloc((void**)&h_voxels.d_voxel_index_queue, sizeof(s32) * f_prop.res.count * (int)ceil(sqrt((double)num_voxels)));
-		h_voxels.index_queue_offset = (u32)ceil(sqrt((double)num_voxels));
+		cudaMalloc((void**)&h_voxels.d_voxel_index_queue, sizeof(s32) * f_prop.res.count * (s32)ceil(sqrt((double)num_voxels)));
+		h_voxels.index_queue_offset = (s32)ceil(sqrt((double)num_voxels ));
 		h_voxels.num_voxels = num_voxels;
 		cudaMemcpy(d_voxels, &(h_voxels), sizeof(voxel_memory), cudaMemcpyHostToDevice);
-		return init_camera_voxel_device_memory(trixels_list, this);
-		
+		cuda_err = init_camera_voxel_device_memory(trixels_list, this);
+		return cuda_err;
 	}
-
-	cudaError_t update_camera_trixel_data() {
-		//cam trixel data is simple a function of cam orientaion and triangel data. so update and init are same
-		//I think because the cross product needs re done and is not a simple addition to translate.
-		//Also note this funtion is in trixel.cu not camera.cu for...reasons...maybe will move later
-		return init_camera_trixel_device_memory(trixels_list, this);
-	}
-	cudaError_t update_camera_voxel_data(Input::translate_vector tv) {
-		return update_camera_voxel_device_memory(tv, this);
-	}
-	cudaError_t translate(Input::translate_vector tv) {
+	//**TODO** right now this just does ALL primitives, change to select primitives
+	//ALSO REMBER IF YOU WANT TO DO THIS FOR PRIMITVIES MAKE SURE TO CALL TRANSFORM ON ALL CAMERAS, or else you will move the camera adn not the object
+	cudaError_t transform(Input::translate_vector tv, u8 transform_select) {
 		o_prop.pos.x += tv.dx; o_prop.pos.y += tv.dy;	o_prop.pos.z += tv.dz;
-		update_camera_voxel_data(tv);
-		return update_camera_trixel_data();
+		transform_camera_voxel_device_memory(this, tv, transform_select);
+		return transform_trixels_device(trixels_list, this, tv, transform_select);
 	};
 
 	cudaError_t color_pixels() { return color_camera_device(this); }

@@ -9,6 +9,7 @@
 void read_ply(const char* file_name, double** points_list, s64* num_tri, kd_leaf_sort** kd_leafs, kd_vertex** vertex_list, s64* num_vert, u8 mode) {
     std::ifstream input(file_name);
     std::string line;
+    s64 triangle_index_offset = *num_tri;
     input >> *num_vert;
     input >> *num_tri;
     *vertex_list = (kd_vertex*)malloc(sizeof(kd_vertex) * *num_vert );
@@ -39,7 +40,7 @@ void read_ply(const char* file_name, double** points_list, s64* num_tri, kd_leaf
 
             (*kd_leafs)[leaf_index].z0 = min((*vertex_list)[p1].z, min((*vertex_list)[p2].z, (*vertex_list)[p3].z));
             (*kd_leafs)[leaf_index].z1 = max((*vertex_list)[p1].z, max((*vertex_list)[p2].z, (*vertex_list)[p3].z));
-            (*kd_leafs)[leaf_index].tri_list_index = leaf_index++;
+            (*kd_leafs)[leaf_index].tri_list_index = triangle_index_offset + leaf_index++;
 
             ((point_vector*)(*points_list))[i].x = (*vertex_list)[p1].x;
             ((point_vector*)(*points_list))[i].y = (*vertex_list)[p1].y;
@@ -55,5 +56,5 @@ void read_ply(const char* file_name, double** points_list, s64* num_tri, kd_leaf
         }
         else { (*num_tri)--; }//Maybe something in the list wasnt a triangle
     }
-
+    free(*vertex_list);
 }

@@ -10,6 +10,9 @@ class Trixel;
 class Camera;
 extern "C" cudaError_t intersect_trixels_device(Trixel * t, Camera * c, u32 mode);
 extern "C" cudaError_t init_trixels_device_memory(Trixel* t);
+extern "C" cudaError_t transform_trixels_device(Trixel * t, Camera * c, Input::translate_vector scale_factor, u8 transform_select);
+
+
 struct kd_vertex { double x; double y; double z; };
  //FOR SOME REASON THIS SEEMS TO BREAK IN GPU. but i think works fine in cpu
 // merge sort needs x,y,z to work
@@ -95,6 +98,7 @@ public:
 		cudaMalloc((void**)&h_mem.d_n.z, sizeof(double) * num_trixels);
 
 		cudaMalloc((void**)&h_mem.d_color.c, sizeof(u32) * num_trixels);
+		cudaMalloc((void**)&h_mem.d_color.rad, sizeof(color::radiance) * num_trixels);
 
 		cudaMalloc((void**)&d_mem, sizeof(trixel_memory));
 		cudaMemcpy(d_mem, &h_mem, sizeof(trixel_memory), cudaMemcpyHostToDevice);
@@ -114,7 +118,8 @@ public:
 		cudaMemcpy(h_points_init_data, points_data, sizeof(double) * num_trixels * 3 * 3, cudaMemcpyHostToHost);
 		cudaMemcpy(d_points_init_data, points_data, sizeof(double) * num_trixels * 3 * 3, cudaMemcpyHostToDevice);
 
-		cudaMemcpy(h_mem.d_color.c, color_data, sizeof(u32) * num_trixels, cudaMemcpyHostToDevice);
+		cudaMemcpy(h_mem.d_color.c, color_data->c, sizeof(u32) * num_trixels, cudaMemcpyHostToDevice);
+		cudaMemcpy(h_mem.d_color.rad, color_data->rad, sizeof(color::radiance) * num_trixels, cudaMemcpyHostToDevice);
 
 		init_trixels_device_memory(this);
 	};
@@ -339,29 +344,23 @@ public:
 				h_tree.h_nodes[write_index].h_bound.z0 = sorted_z0_leafs[new_left].z0;
 				write_index++;
 			}
-			u8 first = 1, second = 2;
+			u8 left = 2, right = 1;
 			switch (cur_node->cut_flag) {
 				//s1 is normal split s2 is extra adjusted plane
 			case 3:
-				first = 2;
-				second = 1;
 			case 0:
-				h_tree.h_nodes[read_index].s2 = h_tree.h_nodes[write_index - first].h_bound.x0;
-				h_tree.h_nodes[read_index].s1 = h_tree.h_nodes[write_index - second].h_bound.x1;
+				h_tree.h_nodes[read_index].s2 = h_tree.h_nodes[write_index - right].h_bound.x0;
+				h_tree.h_nodes[read_index].s1 = h_tree.h_nodes[write_index - left].h_bound.x1;
 				break;
 			case 4:
-				first = 2;
-				second = 1;
 			case 1:
-				h_tree.h_nodes[read_index].s2 = h_tree.h_nodes[write_index - first].h_bound.y0;
-				h_tree.h_nodes[read_index].s1 = h_tree.h_nodes[write_index - second].h_bound.y1;
+				h_tree.h_nodes[read_index].s2 = h_tree.h_nodes[write_index - right].h_bound.y0;
+				h_tree.h_nodes[read_index].s1 = h_tree.h_nodes[write_index - left].h_bound.y1;
 				break;
 			case 5:
-				first = 2;
-				second = 1;
 			case 2:
-				h_tree.h_nodes[read_index].s2 = h_tree.h_nodes[write_index - first].h_bound.z0;
-				h_tree.h_nodes[read_index].s1 = h_tree.h_nodes[write_index - second].h_bound.z1;
+				h_tree.h_nodes[read_index].s2 = h_tree.h_nodes[write_index - right].h_bound.z0;
+				h_tree.h_nodes[read_index].s1 = h_tree.h_nodes[write_index - left].h_bound.z1;
 				break;
 			}
 			
@@ -446,57 +445,11 @@ public:
 		return 0;
 	}
 	cudaError_t intersect_trixels(Camera* c, u32 m) {
-		return intersect_trixels_device(this, c, m);	}
+		return intersect_trixels_device(this, c, m);	
+	}
+
 };
 
 #endif
 
 
-
-/*
-				switch (cur_node->cut_flag) {
-					case 0:
-						temp_d_list[temp_index].sorted_y1_index = list_index == 0 ? l + temp_index : f_list[i].sorted_y1_index; // copy / update  y1 position
-						temp_d_list[temp_index].sorted_x1_index = f_list[i].sorted_x1_index;// copy  x position (unchanged)
-						temp_d_list[temp_index].sorted_z1_index = list_index == 1 ? l + temp_index : f_list[i].sorted_z1_index;// copy / update  z1 position
-						if (list_index == 0) { // updating x,z list with new y position
-							sorted_x1_leafs[temp_d_list[temp_index].sorted_x1_index].sorted_y1_index = temp_d_list[temp_index].sorted_y1_index;
-							sorted_z1_leafs[temp_d_list[temp_index].sorted_z1_index].sorted_y1_index = temp_d_list[temp_index].sorted_y1_index;
-						}
-						else {/// updating x,y list with new z position
-							sorted_x1_leafs[temp_d_list[temp_index].sorted_x1_index].sorted_z1_index = temp_d_list[temp_index].sorted_z1_index;
-							sorted_y1_leafs[temp_d_list[temp_index].sorted_y1_index].sorted_z1_index = temp_d_list[temp_index].sorted_z1_index;
-						}
-						break;
-					case 1:
-
-						temp_d_list[temp_index].sorted_y1_index = f_list[i].sorted_y1_index;// copy  y position (unchanged)
-						temp_d_list[temp_index].sorted_x1_index = list_index == 0 ? l + temp_index : f_list[i].sorted_x1_index; // copy / update  x position
-						temp_d_list[temp_index].sorted_z1_index = list_index == 1 ? l + temp_index : f_list[i].sorted_z1_index;// copy / update  z position
-
-						if (list_index == 0) {
-							sorted_y1_leafs[temp_d_list[temp_index].sorted_y1_index].sorted_x1_index = temp_d_list[temp_index].sorted_x1_index;
-							sorted_z1_leafs[temp_d_list[temp_index].sorted_z1_index].sorted_x1_index = temp_d_list[temp_index].sorted_x1_index;
-						}
-						else {
-							sorted_x1_leafs[temp_d_list[temp_index].sorted_x1_index].sorted_z1_index = temp_d_list[temp_index].sorted_z1_index;
-							sorted_y1_leafs[temp_d_list[temp_index].sorted_y1_index].sorted_z1_index = temp_d_list[temp_index].sorted_z1_index;
-						}
-						break;
-					case 2:
-
-						temp_d_list[temp_index].sorted_y1_index = list_index == 0 ? l + temp_index : f_list[i].sorted_y1_index; // copy / update y position
-						temp_d_list[temp_index].sorted_x1_index = list_index == 1 ? l + temp_index : f_list[i].sorted_x1_index; // copy / update x position
-						temp_d_list[temp_index].sorted_z1_index = f_list[i].sorted_z1_index;// copy  z position (unchanged)
-
-						if (list_index == 0) {
-							sorted_x1_leafs[temp_d_list[temp_index].sorted_x1_index].sorted_y1_index = temp_d_list[temp_index].sorted_y1_index;
-							sorted_z1_leafs[temp_d_list[temp_index].sorted_z1_index].sorted_y1_index = temp_d_list[temp_index].sorted_y1_index;
-						}
-						else {
-							sorted_z1_leafs[temp_d_list[temp_index].sorted_z1_index].sorted_x1_index = temp_d_list[temp_index].sorted_x1_index;
-							sorted_y1_leafs[temp_d_list[temp_index].sorted_y1_index].sorted_x1_index = temp_d_list[temp_index].sorted_x1_index;
-						}
-						break;
-					}
-*/

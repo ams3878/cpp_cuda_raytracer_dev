@@ -44,20 +44,21 @@ u32 peek_message_wrapper(HWND* wind, Input** input_ptr) {
     case WM_KEYDOWN: {
       bool is_down = ((message.lParam & (0x80000000)) == 0);
       switch (vk_code) {
-        process_button(BUTTON_UP, VK_UP);
-        process_button(BUTTON_DOWN, VK_DOWN);
-        process_button(BUTTON_W, 'W');
-        process_button(BUTTON_A, 'A');
-        process_button(BUTTON_D, 'D');
-        process_button(BUTTON_S, 'S');
-        process_button(BUTTON_R, 'R');
-        process_button(BUTTON_Q, 'Q');
-        process_button(BUTTON_E, 'E');
-        process_button(BUTTON_LEFT, VK_LEFT);
-        process_button(BUTTON_RIGHT, VK_RIGHT);
-        process_button(BUTTON_ENTER, VK_RETURN);
-        process_button(BUTTON_ESCAPE, VK_ESCAPE);
-        process_button(BUTTON_F1, VK_F1);
+        process_button(BUTTON_UP);
+        process_button(BUTTON_DOWN);
+        process_button(BUTTON_W);
+        process_button(BUTTON_A);
+        process_button(BUTTON_D);
+        process_button(BUTTON_S);
+        process_button(BUTTON_R);
+        process_button(BUTTON_Q);
+        process_button(BUTTON_E);
+        process_button(BUTTON_T);
+        process_button(BUTTON_LEFT);
+        process_button(BUTTON_RIGHT);
+        process_button(BUTTON_ENTER);
+        process_button(BUTTON_ESCAPE);
+        process_button(BUTTON_F1);
       }
     } break;
     case WM_MOUSEMOVE: {

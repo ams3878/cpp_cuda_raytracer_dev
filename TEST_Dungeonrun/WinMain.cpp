@@ -70,16 +70,15 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 
     Camera* main_cam = new Camera(g_render_res.w, g_render_res.h, // res_w, res_h
         g_render_res.ar * .024, .024, .055, // f_w, f_h, focal_len
-        0.0, 0.750, -1.0, // position
-        0.0, 0.0, 0.0, // look at
+       -0.05, .10, .32, // position
+        -0.05, 0.10, 0.0, // look at
         0.0, 1.0, 0.0// up
     );
-    double* points_for_trixels = 0;
-    kd_leaf_sort* kd_leaf_list = 0;
+    double* points_for_trixels = 0, *points_for_trixels_1 = 0, * points_for_trixels_2 = 0;
+    kd_leaf_sort* kd_leaf_list = 0, *kd_leaf_list_1 = 0, * kd_leaf_list_2 = 0;
     kd_vertex* vertices_for_trixels;
-    color* color_for_trixels = NULL;
-    s64 num_trixels = 0;
-    s64 num_trixel_vert = 0;
+    color color_for_trixels;
+    s64 num_trixels_1 = 0, num_trixels_2 = 0, num_trixel_vert = 0, tot_num_trixels = 0;
 
     LARGE_INTEGER read_scene_begin_time;
     QueryPerformanceCounter(&read_scene_begin_time);
@@ -89,47 +88,78 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
         QueryPerformanceFrequency(&perf);
         performance_frequency = (float)perf.QuadPart;
     }
-    //read_ply("dump_test.ply", &points_for_trixels, &num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 0);
+    //read_ply("dump_test.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 0);
 
     //HUGE DRAGON BOI
-    //read_ply("dragon_vrip_mod.ply", &points_for_trixels, &num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 0);
-
+    //read_ply("dragon_vrip_mod.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 0);
+    //HUGE BUDDHA BOU
+    //read_ply("happy_vrip_mod.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 0);
     //BABy TRIXEL LIST
-    read_ply("dump.ply", &points_for_trixels, &num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert,1);
+    /*
+    read_ply("dump.ply", &points_for_trixels_1, &num_trixels_1, &kd_leaf_list_1, &vertices_for_trixels, &num_trixel_vert, 1);
+    tot_num_trixels += num_trixels_1;
+    num_trixels_2 = tot_num_trixels;
+    read_ply("dump.ply", &points_for_trixels_2, &num_trixels_2, &kd_leaf_list_2, &vertices_for_trixels, &num_trixel_vert, 1);
+    tot_num_trixels += num_trixels_2;
+
+    points_for_trixels = (double*)malloc(sizeof(double) * tot_num_trixels * 9);
+    kd_leaf_list = (kd_leaf_sort*)malloc(sizeof(kd_leaf_sort) * tot_num_trixels);
+
+    memcpy(points_for_trixels, points_for_trixels_1, sizeof(double) * num_trixels_1 * 9);
+    memcpy(points_for_trixels + ((num_trixels_1 -1)* 9), points_for_trixels_2, sizeof(double) * num_trixels_2 * 9);
+
+    memcpy(kd_leaf_list, kd_leaf_list_1, sizeof(kd_leaf_sort) * num_trixels_1);
+    memcpy(kd_leaf_list + num_trixels_1 - 1, kd_leaf_list_2, sizeof(kd_leaf_sort) * num_trixels_2);
+    free(points_for_trixels_1);    free(points_for_trixels_2);    free(kd_leaf_list_1);    free(kd_leaf_list_2);
+    */
+    //read_ply("dump.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 1);
 
     //BIG BOY RABBIT
-    //read_ply("dump23.ply", &points_for_trixels, &num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert,1);
+    read_ply("dump23.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert,1);
 
-    color_for_trixels = (color*)malloc(sizeof(color) * num_trixels);
-    for (int trixel_index = 0; trixel_index < num_trixels; trixel_index++) {
-        color_for_trixels->argb[trixel_index].r = 200;
-        color_for_trixels->argb[trixel_index].g = 0;
-        color_for_trixels->argb[trixel_index].b = 0;
+    color_for_trixels.c = (u32*)malloc(sizeof(u32) * tot_num_trixels);
+    color_for_trixels.rad = (color::radiance*)malloc(sizeof(color::radiance) * tot_num_trixels);
 
+    for (int trixel_index = 0; trixel_index < tot_num_trixels; trixel_index++) {
+        color_for_trixels.rad[trixel_index].r = .1;
+        color_for_trixels.rad[trixel_index].g = .4;
+        color_for_trixels.rad[trixel_index].b = .8;
     }
+    //**TODO** make a timing macro
     LARGE_INTEGER read_scene_end_time;
     QueryPerformanceCounter(&read_scene_end_time);
     delta_time = (float)(read_scene_end_time.QuadPart - read_scene_begin_time.QuadPart) / performance_frequency;
     printf("Time to Read Tree: %f seconds\n", delta_time);
-    printf("\t\t primitives: %lld\n\n", num_trixels);
+    printf("\t\t primitives: %lld\n\n", tot_num_trixels);
 
 
+    printf("Begining Spatial Heiarchy build\n\tSorting voxels....", delta_time);
+    LARGE_INTEGER sort_primitives_start_time;
+    QueryPerformanceCounter(&sort_primitives_start_time);
 
-    LARGE_INTEGER build_tree_start_time;
-    QueryPerformanceCounter(&build_tree_start_time);
+    Trixel* trixel_list = new Trixel(tot_num_trixels, points_for_trixels, &color_for_trixels);
+    trixel_list->set_sorted_voxels(kd_leaf_list, tot_num_trixels);
 
-    Trixel* trixel_list = new Trixel(num_trixels, points_for_trixels, color_for_trixels);
-    trixel_list->set_sorted_voxels(kd_leaf_list, num_trixels);
+    LARGE_INTEGER sort_primitives_end_time;
+    QueryPerformanceCounter(&sort_primitives_end_time);
+    printf("complete. %f seconds\n\tPartioning voxels......", (float)(sort_primitives_end_time.QuadPart - sort_primitives_start_time.QuadPart) / performance_frequency);
+
+    LARGE_INTEGER build_kdtree_start_time;
+    QueryPerformanceCounter(&build_kdtree_start_time);
+
     trixel_list->create_kd();
 
-    LARGE_INTEGER build_tree_end_time;
-    QueryPerformanceCounter(&build_tree_end_time);
+    LARGE_INTEGER build_kdtree_end_time;
+    QueryPerformanceCounter(&build_kdtree_end_time);
+    printf("complete. %f seconds\n", (float)(build_kdtree_end_time.QuadPart - build_kdtree_start_time.QuadPart) / performance_frequency);
 
-    delta_time = (float)(build_tree_end_time.QuadPart - build_tree_start_time.QuadPart) / performance_frequency;
-    printf("Time to build tree: %f seconds\n", delta_time);
+
+    printf("Total Time to build tree: %f seconds\n", (float)(build_kdtree_end_time.QuadPart - sort_primitives_start_time.QuadPart) / performance_frequency);
+
 
     main_cam->init_camera_trixel_data(trixel_list, trixel_list->num_trixels);
     main_cam->init_camera_voxel_data(trixel_list, trixel_list->num_voxels);
+    cudaFree(trixel_list->h_tree.d_nodes);
 
 
 
@@ -158,33 +188,42 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
                 g_input->translate.dx = main_cam->o_prop.n.x * cam_speed;
                 g_input->translate.dy = main_cam->o_prop.n.y * cam_speed;
                 g_input->translate.dz = main_cam->o_prop.n.z * cam_speed;
-                main_cam->translate(g_input->translate);
+                main_cam->transform(g_input->translate, TRANSLATE_XYZ);
             }
             if (is_click_hold(BUTTON_S)) {
                 g_input->translate.dx = -main_cam->o_prop.n.x * cam_speed;
                 g_input->translate.dy = -main_cam->o_prop.n.y * cam_speed;
                 g_input->translate.dz = -main_cam->o_prop.n.z * cam_speed;
-                main_cam->translate(g_input->translate);
+                main_cam->transform(g_input->translate, TRANSLATE_XYZ);
             }
             if (is_click_hold(BUTTON_Q)) { // STRAFE LEFT
                 g_input->translate.dx = -main_cam->o_prop.u.x * cam_speed;
                 g_input->translate.dy = -main_cam->o_prop.u.y * cam_speed;
                 g_input->translate.dz = -main_cam->o_prop.u.z * cam_speed;
-                main_cam->translate(g_input->translate);
+                main_cam->transform(g_input->translate, TRANSLATE_XYZ);
             }
             if (is_click_hold(BUTTON_E)) {// STRAFE RIGHT
                 g_input->translate.dx = main_cam->o_prop.u.x * cam_speed;
                 g_input->translate.dy = main_cam->o_prop.u.y * cam_speed;
                 g_input->translate.dz = main_cam->o_prop.u.z * cam_speed;
-                main_cam->translate(g_input->translate);
+                main_cam->transform(g_input->translate, TRANSLATE_XYZ);
             }
             if (is_button_release(BUTTON_R)) {
-                render_mode = (render_mode + 1) % 2;
+                g_input->translate.dx = .5;
+                g_input->translate.dy = .5;
+                g_input->translate.dz = .5;
+                main_cam->transform(g_input->translate, SCALE_XYZ);
+            }
+            if (is_button_release(BUTTON_T)) {
+                g_input->translate.dx = 2.0;
+                g_input->translate.dy = 2.0;
+                g_input->translate.dz = 2.0;
+                main_cam->transform(g_input->translate, SCALE_XYZ);
             }
             cur_tick = 0;
         }
         trixel_list->intersect_trixels(main_cam, render_mode);
-         main_cam->color_pixels();
+        main_cam->color_pixels();
         StretchDIBits(hdc, 0, 0, g_render_res.w, g_render_res.h, 0, 0, g_render_res.w, g_render_res.h, (void*)main_cam->h_mem.h_color.c, &g_bitmap_info, DIB_RGB_COLORS, SRCCOPY);
 
         QueryPerformanceCounter(&frame_end_time);

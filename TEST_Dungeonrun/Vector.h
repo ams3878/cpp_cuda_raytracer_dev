@@ -2,7 +2,7 @@
 #ifndef VECTOR_H
   #define VECTOR_H
   #include "platform_common.h"
-#define HOST_EPSILON_SINGLE 1e-30
+#define HOST_EPSILON_SINGLE 1e-25
 #define VECTOR_NO_TAG 0
 #define VECTOR_X_TAG 1
 #define VECTOR_Y_TAG 2
@@ -32,7 +32,7 @@ struct vector_xyz { double x; double y; double z; };
   T* normalize_Vector(T vx, T vy, T vz) {//both v and nv must already be intialized, if both same in place normalize
       union { T x; s64 i; } u;
       u.x = vx * vx + vy * vy + vz * vz;//this cant be negative
-      if (u.x < EPSILON) { return NULL; } //not sure if i need to do anything, if errors change this
+      if (u.x < EPSILON) { ; } //not sure if i need to do anything, if errors change this
       else {
           T invrs_sqrt_half = 0.5f * u.x;
           u.x = invrs_sqrt_half;
@@ -43,8 +43,9 @@ struct vector_xyz { double x; double y; double z; };
           /* The next line can be repeated any number of times to increase accuracy */
           double old = u.x;
           u.x = u.x * (1.5f - invrs_sqrt_half * u.x * u.x);
-          while (old - u.x > HOST_EPSILON_SINGLE) {
-              old = u.x;
+          //while (old - u.x > HOST_EPSILON_SINGLE) {
+          for (int i = 0; i < 10; i++) {
+             // old = u.x;
               u.x = u.x * (1.5f - invrs_sqrt_half * u.x * u.x);
           }
       }

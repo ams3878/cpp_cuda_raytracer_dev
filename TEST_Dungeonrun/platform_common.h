@@ -16,7 +16,12 @@ typedef int s32;
 typedef unsigned int u32;
 typedef long long s64;
 typedef unsigned long long u64;
-struct color { union { struct { u8 b = 3; u8 g = 3; u8 r = 6; u8 a = 0; }*argb; u32* c; };};
+
+//CUDA TRANSFORM DEFINES
+#define SCALE_XYZ 0
+#define TRANSLATE_XYZ 1
+struct color {
+    union { struct { u8 b = 3; u8 g = 3; u8 r = 6; u8 a = 0; }*argb; u32* c; }; struct radiance{ double r, g, b; } *rad;};
 
 class Button {
     HWND* wind = NULL;
@@ -29,26 +34,28 @@ public:
     s16 p_select_y = 0;
   };
 
-  enum {
-    BUTTON_UP,
-    BUTTON_DOWN,
-    BUTTON_W,
-    BUTTON_S,
-    BUTTON_A,
-    BUTTON_D,
-    BUTTON_R,
-    BUTTON_E,
-    BUTTON_Q,
-    BUTTON_LEFT,
-    BUTTON_RIGHT,
-    BUTTON_ENTER,
-    BUTTON_ESCAPE,
+enum {
+    BUTTON_UP = VK_UP,
+    BUTTON_DOWN = VK_DOWN,
+    BUTTON_W = 'W',
+    BUTTON_S = 'S',
+    BUTTON_A = 'A',
+    BUTTON_D = 'D',
+    BUTTON_R = 'R',
+    BUTTON_E = 'E',
+    BUTTON_Q = 'Q',
+    BUTTON_T = 'T',
+    BUTTON_LEFT = VK_LEFT ,
+    BUTTON_RIGHT = VK_RIGHT,
+    BUTTON_ENTER = VK_RETURN,
+    BUTTON_ESCAPE = VK_ESCAPE,
+    BUTTON_F1 = VK_F1,
     BUTTON_LEFTMOUSE,
     BUTTON_RIGHTMOUSE,
-    BUTTON_F1,
     BUTTON_COUNT, // Should be the last item
   };
-
+  #define NUM_MOUSE_BUTTONS 2
+  //enum w_input_enum { BUTTON_UP, BUTTON_W  };
   class Input {
   public:
     Button buttons[BUTTON_COUNT];
@@ -63,8 +70,8 @@ public:
 #endif
 #ifndef BUTTON_PROCESS_MACROS
 #define BUTTON_PROCESS_MACROS
-#define process_button(b, vk)\
-case vk: {\
+#define process_button(b)\
+case b: {\
   GLOBALINPUT->buttons[b].changed = is_down != GLOBALINPUT->buttons[b].is_down;\
   GLOBALINPUT->buttons[b].is_down = is_down;\
 } break;
