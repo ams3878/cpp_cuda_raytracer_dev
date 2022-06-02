@@ -11,6 +11,12 @@
     <ClCompile Include="vector.cpp">
       <Filter>UTILS/MISC</Filter>
     </ClCompile>
+    <ClCompile Include="Color.cpp">
+      <Filter>Color</Filter>
+    </ClCompile>
+    <ClCompile Include="Camera.cpp">
+      <Filter>Camera</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h">
@@ -34,6 +40,10 @@
     <ClInclude Include="sort.h">
       <Filter>UTILS/MISC</Filter>
     </ClInclude>
+    <ClInclude Include="Color.h">
+      <Filter>Color</Filter>
+    </ClInclude>
+    <ClInclude Include="framework.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Camera">
@@ -47,6 +57,9 @@
     </Filter>
     <Filter Include="Trixel">
       <UniqueIdentifier>{7c0c41c8-5299-44d9-8862-d5116c2693e2}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Color">
+      <UniqueIdentifier>{dd9fc325-433e-4a3f-805a-aa037c897aff}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

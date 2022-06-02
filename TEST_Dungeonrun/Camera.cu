@@ -147,6 +147,8 @@ __global__ void init_cam_voxel_mem_cuda(Camera::voxel_memory* vm, Trixel::kd_tre
     vm->is_leaf[i] = kdm->d_nodes[i].is_leaf;
     vm->children[i].left = kdm->d_nodes[i].left_node;
     vm->children[i].right= kdm->d_nodes[i].right_node;
+    vm->children[i].parent = kdm->d_nodes[i].parent;
+
     vm->children[i].triangle = vm->is_leaf[i] == 0 ? -1 : kdm->d_nodes[i].tri_index;
 
     vm->cut_flags[i].x = cut_dir == 0 || cut_dir == 3 ? 1 : 0;

@@ -2,6 +2,7 @@
 #ifndef TRIXEL_H
 #define TRIXEL_H
 #include "Vector.h"
+#include "Color.h"
 #include "cuda_runtime.h"
 #include "sort.h"
 #include <stdio.h>
@@ -55,7 +56,7 @@ public:
 		struct edges {
 			struct edge { double* x; double* y; double* z; }e1, e2;//,e3;
 		}d_edges;
-		color d_color;
+		Color d_color;
 		struct surface_normals { double* x; double* y; double* z; }d_n;
 		trixel_memory() : d_color(), d_n(), d_edges(), h_p1(NULL), d_p1(NULL) {}
 	}h_mem;void* d_mem;
@@ -79,7 +80,7 @@ public:
 		sorted_x0_leafs(NULL), sorted_x1_leafs(NULL), sorted_y0_leafs(NULL), sorted_y1_leafs(NULL), sorted_z0_leafs(NULL), sorted_z1_leafs(NULL),
 		indexed_leafs(NULL), num_trixels(0), num_vertices(0), num_voxels(0) {}
 
-	Trixel(s64 num_t, double* points_data, color* color_data) : Trixel() {
+	Trixel(s64 num_t, double* points_data, Color* color_data) : Trixel() {
 		num_trixels = num_t;
 
 		h_mem.h_p1 = (trixel_memory::points*)malloc(sizeof(trixel_memory::points) * num_trixels);
@@ -98,7 +99,7 @@ public:
 		cudaMalloc((void**)&h_mem.d_n.z, sizeof(double) * num_trixels);
 
 		cudaMalloc((void**)&h_mem.d_color.c, sizeof(u32) * num_trixels);
-		cudaMalloc((void**)&h_mem.d_color.rad, sizeof(color::radiance) * num_trixels);
+		cudaMalloc((void**)&h_mem.d_color.rad, sizeof(Color::radiance) * num_trixels);
 
 		cudaMalloc((void**)&d_mem, sizeof(trixel_memory));
 		cudaMemcpy(d_mem, &h_mem, sizeof(trixel_memory), cudaMemcpyHostToDevice);
@@ -119,7 +120,7 @@ public:
 		cudaMemcpy(d_points_init_data, points_data, sizeof(double) * num_trixels * 3 * 3, cudaMemcpyHostToDevice);
 
 		cudaMemcpy(h_mem.d_color.c, color_data->c, sizeof(u32) * num_trixels, cudaMemcpyHostToDevice);
-		cudaMemcpy(h_mem.d_color.rad, color_data->rad, sizeof(color::radiance) * num_trixels, cudaMemcpyHostToDevice);
+		cudaMemcpy(h_mem.d_color.rad, color_data->rad, sizeof(Color::radiance) * num_trixels, cudaMemcpyHostToDevice);
 
 		init_trixels_device_memory(this);
 	};

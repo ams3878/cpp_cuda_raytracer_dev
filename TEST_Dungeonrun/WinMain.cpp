@@ -1,8 +1,6 @@
 #include "window_functions.h"
-#include "Camera.h"
-#include "Trixel.h"
+#include "framework.h"
 #include "sort.h"
-#include "Vector.h"
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
 #include <stdio.h>
@@ -77,7 +75,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
     double* points_for_trixels = 0, *points_for_trixels_1 = 0, * points_for_trixels_2 = 0;
     kd_leaf_sort* kd_leaf_list = 0, *kd_leaf_list_1 = 0, * kd_leaf_list_2 = 0;
     kd_vertex* vertices_for_trixels;
-    color color_for_trixels;
+    Color color_for_trixels;
     s64 num_trixels_1 = 0, num_trixels_2 = 0, num_trixel_vert = 0, tot_num_trixels = 0;
 
     LARGE_INTEGER read_scene_begin_time;
@@ -112,13 +110,13 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
     memcpy(kd_leaf_list + num_trixels_1 - 1, kd_leaf_list_2, sizeof(kd_leaf_sort) * num_trixels_2);
     free(points_for_trixels_1);    free(points_for_trixels_2);    free(kd_leaf_list_1);    free(kd_leaf_list_2);
     */
-    //read_ply("dump.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 1);
+    read_ply("dump.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 1);
 
     //BIG BOY RABBIT
-    read_ply("dump23.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert,1);
+    //read_ply("dump23.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert,1);
 
     color_for_trixels.c = (u32*)malloc(sizeof(u32) * tot_num_trixels);
-    color_for_trixels.rad = (color::radiance*)malloc(sizeof(color::radiance) * tot_num_trixels);
+    color_for_trixels.rad = (Color::radiance*)malloc(sizeof(Color::radiance) * tot_num_trixels);
 
     for (int trixel_index = 0; trixel_index < tot_num_trixels; trixel_index++) {
         color_for_trixels.rad[trixel_index].r = .1;

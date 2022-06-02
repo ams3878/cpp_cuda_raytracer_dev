@@ -1,7 +1,7 @@
 #pragma once
 #ifndef PLATFORM_COMMON_H
 #define PLATFORM_COMMON_H
-#include <windows.h>
+#include  <windows.h>
 #ifndef GLOBALINPUT
 #define GLOBALINPUT g_input
 #endif
@@ -20,8 +20,7 @@ typedef unsigned long long u64;
 //CUDA TRANSFORM DEFINES
 #define SCALE_XYZ 0
 #define TRANSLATE_XYZ 1
-struct color {
-    union { struct { u8 b = 3; u8 g = 3; u8 r = 6; u8 a = 0; }*argb; u32* c; }; struct radiance{ double r, g, b; } *rad;};
+
 
 class Button {
     HWND* wind = NULL;

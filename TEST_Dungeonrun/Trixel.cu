@@ -53,10 +53,32 @@ __global__ void intersect_voxel_cuda( Camera::pixel_memory* cm,  Camera::voxel_m
 	//cm->d_color.rad[i].g = 0;
 	//cm->d_color.rad[i].b = 0;
 	cm->d_rmi.index[i] = (s64)-1;
-	cm->d_dist.d[i] = d;
-
+	//cm->d_dist.d[i] = d;
 	while ((index_front - index_start) >= 0) {
 		cni = cvm->d_voxel_index_queue[index_front--];
+				//YAY NO BRANCHES  ???? is it worth??? NO IDEA
+			//swap t0, t1 if ray in negative direction
+			//**TODO** precomput sign * rmd to remove more operations
+		t0x = ((cvm->d_Bo[cni].t0x * (1 - cm->sign_rmd.d_x[i])) + (cvm->d_Bo[cni].t1x * (cm->sign_rmd.d_x[i]))) * cm->inv_rmd.d_x[i];
+		t1x = ((cvm->d_Bo[cni].t1x * (1 - cm->sign_rmd.d_x[i])) + (cvm->d_Bo[cni].t0x * (cm->sign_rmd.d_x[i]))) * cm->inv_rmd.d_x[i];
+
+		t0y = ((cvm->d_Bo[cni].t0y * (1 - cm->sign_rmd.d_y[i])) + (cvm->d_Bo[cni].t1y * (cm->sign_rmd.d_y[i]))) * cm->inv_rmd.d_y[i];
+		t1y = ((cvm->d_Bo[cni].t1y * (1 - cm->sign_rmd.d_y[i])) + (cvm->d_Bo[cni].t0y * (cm->sign_rmd.d_y[i]))) * cm->inv_rmd.d_y[i];
+
+		t0z = ((cvm->d_Bo[cni].t0z * (1 - cm->sign_rmd.d_z[i])) + (cvm->d_Bo[cni].t1z * (cm->sign_rmd.d_z[i]))) * cm->inv_rmd.d_z[i];
+		t1z = ((cvm->d_Bo[cni].t1z * (1 - cm->sign_rmd.d_z[i])) + (cvm->d_Bo[cni].t0z * (cm->sign_rmd.d_z[i]))) * cm->inv_rmd.d_z[i];
+		//select entrance (maxt0) and exit(mint1) planes of voxel, and then get coordinate in split direction ( t * dir)
+		s1 = cvm->s1[cni] + DEVICE_EPSILON_SINGLE;
+		s2 = cvm->s2[cni] ;
+
+		//if ((t0x > t1y) || (t0y > t1x)) { return; }
+		dir = ((cm->rmd.d_x[i] * cvm->cut_flags[cni].x) + (cm->rmd.d_y[i] * cvm->cut_flags[cni].y) + (cm->rmd.d_z[i] * cvm->cut_flags[cni].z));
+
+		maxt0 = fmax(t0z, fmax(t0x, t0y));
+		mint1 = fmin(t1z, fmin(t1x, t1y));
+
+
+
 		if (cvm->is_leaf[cni]) {
 			tri_i = cvm->children[cni].triangle;
 			device_cross(&p_x, &p_y, &p_z,
@@ -87,40 +109,18 @@ __global__ void intersect_voxel_cuda( Camera::pixel_memory* cm,  Camera::voxel_m
 					cm->norm.d_z[i] = tm->d_n.z[tri_i];
 					return;
 				}
-			}	
+			}
 			continue;
 		}
-		//YAY NO BRANCHES  ???? is it worth??? NO IDEA
-			//swap t0, t1 if ray in negative direction
-			//**TODO** precomput sign * rmd to remove more operations
-		t0x = ((cvm->d_Bo[cni].t0x * (1 - cm->sign_rmd.d_x[i])) + (cvm->d_Bo[cni].t1x * (cm->sign_rmd.d_x[i]))) * cm->inv_rmd.d_x[i];
-		t1x = ((cvm->d_Bo[cni].t1x * (1 - cm->sign_rmd.d_x[i])) + (cvm->d_Bo[cni].t0x * (cm->sign_rmd.d_x[i]))) * cm->inv_rmd.d_x[i];
-
-		t0y = ((cvm->d_Bo[cni].t0y * (1 - cm->sign_rmd.d_y[i])) + (cvm->d_Bo[cni].t1y * (cm->sign_rmd.d_y[i]))) * cm->inv_rmd.d_y[i];
-		t1y = ((cvm->d_Bo[cni].t1y * (1 - cm->sign_rmd.d_y[i])) + (cvm->d_Bo[cni].t0y * (cm->sign_rmd.d_y[i]))) * cm->inv_rmd.d_y[i];
-
-		t0z = ((cvm->d_Bo[cni].t0z * (1 - cm->sign_rmd.d_z[i])) + (cvm->d_Bo[cni].t1z * (cm->sign_rmd.d_z[i]))) * cm->inv_rmd.d_z[i];
-		t1z = ((cvm->d_Bo[cni].t1z * (1 - cm->sign_rmd.d_z[i])) + (cvm->d_Bo[cni].t0z * (cm->sign_rmd.d_z[i]))) * cm->inv_rmd.d_z[i];
-		//select entrance (maxt0) and exit(mint1) planes of voxel, and then get coordinate in split direction ( t * dir)
-		//if ((t0x > t1y) || (t0y > t1x)) { return; }
-		maxt0 = fmax(t0z, fmax(t0x, t0y));
-		mint1 = fmin(t1z, fmin(t1x, t1y));
-		//if ((maxt0 > t1z) || (t0z > mint1)) { return; }
-
 		if (mint1 > maxt0 - DEVICE_EPSILON_SINGLE && maxt0 > -DEVICE_EPSILON_SINGLE) {
 			//cm->d_rmi.index[i] = (s64)-2;
-			dir = ((cm->rmd.d_x[i] * cvm->cut_flags[cni].x) + (cm->rmd.d_y[i] * cvm->cut_flags[cni].y) + (cm->rmd.d_z[i] * cvm->cut_flags[cni].z));
-			maxt0 *= dir; mint1 *= dir;
-
-			s1 = cvm->s1[cni] + DEVICE_EPSILON_SINGLE;
-			s2 = cvm->s2[cni] ;
-			if (maxt0  < s2 + DEVICE_EPSILON_SINGLE) {
+			maxt0 *= dir; mint1 *= dir;		
+			
+			if (maxt0  < s2 - DEVICE_EPSILON_SINGLE) {
 				//cm->d_color.rad[i].r += .001;
-
 				if (mint1 > s2 - DEVICE_EPSILON_SINGLE) { 
 					cvm->d_voxel_index_queue[++index_front] = cvm->children[cni].right;
 					//cm->d_color.rad[i].r += .0005;
-
 				}
 				cvm->d_voxel_index_queue[++index_front] = cvm->children[cni].left;
 			}
@@ -129,11 +129,10 @@ __global__ void intersect_voxel_cuda( Camera::pixel_memory* cm,  Camera::voxel_m
 				if (mint1  < s1 || maxt0 < s1 ) {
 					cvm->d_voxel_index_queue[++index_front] = cvm->children[cni].left;
 					//cm->d_color.rad[i].r += .0005;
-
 				}
 				cvm->d_voxel_index_queue[++index_front] = cvm->children[cni].right;
 			}
-		}
+		}		
 	}
 	return;
 }

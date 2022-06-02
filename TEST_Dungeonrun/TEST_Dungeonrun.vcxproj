@@ -83,6 +83,8 @@
     <CudaCompile Include="Trixel.cu" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="Camera.cpp" />
+    <ClCompile Include="Color.cpp" />
     <ClCompile Include="read_ply.cpp" />
     <ClCompile Include="vector.cpp" />
     <ClCompile Include="WinMain.cpp" />
@@ -90,6 +92,8 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
+    <ClInclude Include="Color.h" />
+    <ClInclude Include="framework.h" />
     <ClInclude Include="sort.h" />
     <ClInclude Include="vector.cuh" />
     <ClInclude Include="platform_common.h" />
