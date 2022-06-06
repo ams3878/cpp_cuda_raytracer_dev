@@ -2,19 +2,30 @@
 #ifndef VECTOR_H
   #define VECTOR_H
   #include "platform_common.h"
-#define HOST_EPSILON_SINGLE 1e-25
+#define HOST_EPSILON_SINGLE 1e-35
 #define VECTOR_NO_TAG 0
 #define VECTOR_X_TAG 1
 #define VECTOR_Y_TAG 2
 #define VECTOR_Z_TAG 3
+#include <typeinfo>
+//PPP_TAG pre proccesor precison tag. 0 for float 1 for double
+#define PPP_TAG 0
 
-struct vector_xyz { double x; double y; double z; };
+
+#if PPP_TAG == 0
+#define T_fp float
+#define T_uint u32
+#define precision_shift 31
+#elif PPP_TAG == 1
+#define T_fp double
+#define T_uint u64
+#define precision_shift 63
+#endif
 
   template <typename T>  T* normalize_Vector(T vx, T vy, T vz);
-#define _normalize_Vector(v) normalize_Vector(v[0],v[1],v[2]);
+#define _normalize_Vector(v) normalize_Vector<T_fp>(v[0],v[1],v[2]);
   template <typename T> T dot_Vector(T* vec_a, T* vec_b);
   template <typename T> int cross_Vector(T* vec_a, T* vec_b);
-  template <typename T> T vector_norm(T* vec);
   template <typename T> T vector_normsq(T* vec);
   int vector_log2(u64 val);
 
@@ -29,35 +40,47 @@ struct vector_xyz { double x; double y; double z; };
 44, 24, 15,  8, 23,  7,  6,  5 };
 
   template <typename T>
-  T* normalize_Vector(T vx, T vy, T vz) {//both v and nv must already be intialized, if both same in place normalize
-      union { T x; s64 i; } u;
-      u.x = vx * vx + vy * vy + vz * vz;//this cant be negative
-      if (u.x < EPSILON) { ; } //not sure if i need to do anything, if errors change this
-      else {
-          T invrs_sqrt_half = 0.5f * u.x;
-          u.x = invrs_sqrt_half;
-          //Im just goin to use doubles for now
-          //if (typeid(T) == typeid(float) { u.i = 0x5f375a86 - (u.i >> 1); }//single
-          //if (typeid(T) == typeid(double) { u.i = 0x5FE6EB50C7B537A9 - (u.i >> 1); }//double
-          u.i = 0x5FE6EB50C7B537A9 - (u.i >> 1);
-          /* The next line can be repeated any number of times to increase accuracy */
-          double old = u.x;
-          u.x = u.x * (1.5f - invrs_sqrt_half * u.x * u.x);
-          //while (old - u.x > HOST_EPSILON_SINGLE) {
-          for (int i = 0; i < 10; i++) {
-             // old = u.x;
-              u.x = u.x * (1.5f - invrs_sqrt_half * u.x * u.x);
-          }
-      }
-      T* temp = (T*)malloc(sizeof(T) * 3);
-      temp[0] = vx * u.x;
-      temp[1] = vy * u.x;
-      temp[2] = vz * u.x;
+  struct VEC3_CUDA { union { T* x; T* r; }; union { T* y; T* g; }; union { T* z; T* b; }; };
 
+  template <typename T>
+  struct VEC3 { union { T x; T r; }; union { T y; T g; }; union { T z; T b; }; };
+
+  template <typename T>
+  T vector_norm(T scalor) {
+      T invrs_sqrt = scalor;
+      T invrs_sqrt_half = 0.5 * invrs_sqrt;
+      union { T x; s64 i; } u;
+      u.x = invrs_sqrt_half;
+     // u.i = typeid(T) == typeid(float) ? 0x5f375a86 - (u.i >> 1) : 0x5FE6EB50C7B537A9 - (u.i >> 1);
+      u.i = 0x5f375a86 - (u.i >> 1);
+      /* The next line can be repeated any number of times to increase accuracy */
+      for (int i = 0; i < 8; i++) {
+          u.x = u.x * (1.5f - invrs_sqrt_half * u.x * u.x);
+      }
+      //invrs_sqrt = 
+      return u.x;
+  }
+  template <typename T>
+  T* normalize_Vector(T vx, T vy, T vz, T v4) {//both v and nv must already be intialized, if both same in place normalize
+      T s = vx * vx + vy * vy + vz * vz + v4 * v4;//this cant be negative     
+      s = vector_norm(s);
+      T* temp = (T*)malloc(sizeof(T) * 4);
+      temp[0] = vx * s;
+      temp[1] = vy * s;
+      temp[2] = vz * s;
+      temp[3] = v4 * s;
       return temp;
   }
-
-
+  template <typename T>
+  T* normalize_Vector(T vx, T vy, T vz) {//both v and nv must already be intialized, if both same in place normalize
+      T s = vx * vx + vy * vy + vz * vz ;//this cant be negative     
+      s = vector_norm(s);
+      T* temp = (T*)malloc(sizeof(T) * 3);
+      temp[0] = vx * s;
+      temp[1] = vy * s;
+      temp[2] = vz * s;
+      return temp;
+  }
 
   template <typename T>
   T dot_Vector(T* vec_a, T* vec_b) {
@@ -72,18 +95,7 @@ struct vector_xyz { double x; double y; double z; };
       vec_a[0] = t0; vec_a[1] = t1; vec_a[2] = t2;
       return 0;
   }
-  template <typename T>
-  T vector_norm(T* vec) {
-      T invrs_sqrt = vector_normsq(vec);
-      T invrs_sqrt_half = 0.5 * invrs_sqrt;
-      union { T x; int i; } u;
-      u.x = invrs_sqrt_half;
-      u.i = 0x5f375a86 - (u.i >> 1);
-      /* The next line can be repeated any number of times to increase accuracy */
-      u.x = u.x * (1.5f - invrs_sqrt_half * u.x * u.x);
-      invrs_sqrt = u.x;
-      return 1 / invrs_sqrt;
-  }
+
   template <typename T>
   T vector_normsq(T* vec) {
       T rv_normsq = 0.0;  T* temp_v = vec;

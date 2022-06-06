@@ -5,3 +5,4 @@
 #include "Camera.h"
 #include "Trixel.h"
 #include "Vector.h"
+#include "Quaternion.h"

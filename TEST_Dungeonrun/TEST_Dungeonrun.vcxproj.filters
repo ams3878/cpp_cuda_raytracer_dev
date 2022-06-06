@@ -17,6 +17,10 @@
     <ClCompile Include="Camera.cpp">
       <Filter>Camera</Filter>
     </ClCompile>
+    <ClCompile Include="Voxel.cpp" />
+    <ClCompile Include="Quaternion.cpp">
+      <Filter>Quaternion</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h">
@@ -44,6 +48,11 @@
       <Filter>Color</Filter>
     </ClInclude>
     <ClInclude Include="framework.h" />
+    <ClInclude Include="Voxel.h" />
+    <ClInclude Include="Quaternion.h">
+      <Filter>Quaternion</Filter>
+    </ClInclude>
+    <ClInclude Include="framework.cuh" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Camera">
@@ -61,6 +70,12 @@
     <Filter Include="Color">
       <UniqueIdentifier>{dd9fc325-433e-4a3f-805a-aa037c897aff}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Voxel">
+      <UniqueIdentifier>{a2113a79-b866-47b4-94ea-9b332fb0b951}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Quaternion">
+      <UniqueIdentifier>{004af5c1-d568-4945-a77f-5e58dac36198}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <CudaCompile Include="Camera.cu">
@@ -72,10 +87,14 @@
     <CudaCompile Include="vector.cu">
       <Filter>UTILS/MISC</Filter>
     </CudaCompile>
+    <CudaCompile Include="Quaternion.cu">
+      <Filter>Quaternion</Filter>
+    </CudaCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="dump.ply" />
     <None Include="dump_test.ply" />
     <None Include="dragon_vrip_mod.ply" />
+    <None Include="cpp.hint" />
   </ItemGroup>
 </Project>

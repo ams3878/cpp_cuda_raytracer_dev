@@ -5,8 +5,7 @@
 #include "Trixel.h"
 #define XYZ_MASK 0
 #define XYZCI_MASK 1
-
-void read_ply(const char* file_name, double** points_list, s64* num_tri, kd_leaf_sort** kd_leafs, kd_vertex** vertex_list, s64* num_vert, u8 mode) {
+void read_ply(const char* file_name, T_fp** points_list, s64* num_tri, kd_leaf_sort** kd_leafs, kd_vertex** vertex_list, s64* num_vert, u8 mode) {
     std::ifstream input(file_name);
     std::string line;
     s64 triangle_index_offset = *num_tri;
@@ -15,9 +14,9 @@ void read_ply(const char* file_name, double** points_list, s64* num_tri, kd_leaf
     *vertex_list = (kd_vertex*)malloc(sizeof(kd_vertex) * *num_vert );
     *kd_leafs = (kd_leaf_sort*)malloc(sizeof(kd_leaf_sort) * *num_tri);
 
-    struct point_vector { double x; double y; double z; };
-    *points_list = (double*)malloc(sizeof(double) * *num_tri * 3 * 3);
-    double confidence, intesity;
+    struct point_vector { T_fp x; T_fp y; T_fp z; };
+    *points_list = (T_fp*)malloc(sizeof(T_fp) * *num_tri * 3 * 3);
+    T_fp confidence, intesity;
     for (u64 i = 0; i < *num_vert; i++) {
         switch(mode){
         case XYZ_MASK:

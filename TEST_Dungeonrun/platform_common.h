@@ -18,9 +18,15 @@ typedef long long s64;
 typedef unsigned long long u64;
 
 //CUDA TRANSFORM DEFINES
-#define SCALE_XYZ 0
-#define TRANSLATE_XYZ 1
+constexpr auto TRANSLATE_XYZ = 30;
+constexpr auto TRI_TAG_OFFSET = 10;
+constexpr auto ROTATE_TRI_PY = 10;
 
+//The rotate tages are used for offset into rot matrix so they cannot be arbitray tags
+constexpr auto ROTATE_CAM_PY = 0;
+constexpr auto ROTATE_CAM_NY = 1;
+constexpr auto ROTATE_CAM_PX = 2;
+constexpr auto ROTATE_CAM_NX = 3;
 
 class Button {
     HWND* wind = NULL;

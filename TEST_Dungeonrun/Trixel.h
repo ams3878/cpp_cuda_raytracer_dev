@@ -5,22 +5,21 @@
 #include "Color.h"
 #include "cuda_runtime.h"
 #include "sort.h"
+#include "Camera.h"
 #include <stdio.h>
 
 class Trixel;
-class Camera;
-extern "C" cudaError_t intersect_trixels_device(Trixel * t, Camera * c, u32 mode);
+cudaError_t intersect_trixels_device(Trixel* t, Camera* c, u32 mode);
 extern "C" cudaError_t init_trixels_device_memory(Trixel* t);
-extern "C" cudaError_t transform_trixels_device(Trixel * t, Camera * c, Input::translate_vector scale_factor, u8 transform_select);
 
 
-struct kd_vertex { double x; double y; double z; };
+struct kd_vertex { T_fp x; T_fp y; T_fp z; };
  //FOR SOME REASON THIS SEEMS TO BREAK IN GPU. but i think works fine in cpu
 // merge sort needs x,y,z to work
 struct kd_leaf_sort {
-	double x0; double x1;
-	double y0; double y1;
-	double z0; double z1;
+	T_fp x0; T_fp x1;
+	T_fp y0; T_fp y1;
+	T_fp z0; T_fp z1;
 
 	s64 sorted_x0_index, sorted_y0_index, sorted_z0_index, sorted_x1_index, sorted_y1_index, sorted_z1_index, tri_list_index;
 
@@ -29,12 +28,13 @@ struct kd_leaf_sort {
 		tri_list_index(0) {}
 };
 struct kd_leaf {
-	double x0; double x1;
-	double y0; double y1;
-	double z0; double z1;
+	T_fp x0; T_fp x1;
+	T_fp y0; T_fp y1;
+	T_fp z0; T_fp z1;
 	s64 tri_list_index;
 	kd_leaf() : x1(0.0), x0(0.0), y1(0.0), y0(0.0), z1(0.0), z0(0.0), tri_list_index(0) {}
 };
+//template <typename T_fp >
 class Trixel
 {
 	kd_leaf_sort* sorted_x0_leafs;
@@ -49,23 +49,24 @@ public:
 	s64 num_vertices;
 	s64 num_voxels;
 
-	double* d_points_init_data; //tri list data [p0x, p0y, p0z, p1x, p1ym p1z, p2x, p2y p3z,....for each triangle]
-	double* h_points_init_data; // i.e num_trixel * 3(points) * 3(component)
+	T_fp* d_points_init_data; //tri list data [p0x, p0y, p0z, p1x, p1ym p1z, p2x, p2y p3z,....for each triangle]
+	T_fp* h_points_init_data; // i.e num_trixel * 3(points) * 3(component)
 	struct trixel_memory {
-		struct points { double x; double y; double z; }*h_p1, *d_p1;
+		VEC3<T_fp> *h_p1, *d_p1;
 		struct edges {
-			struct edge { double* x; double* y; double* z; }e1, e2;//,e3;
+			VEC3_CUDA<T_fp> e1, e2;//,e3;
 		}d_edges;
 		Color d_color;
-		struct surface_normals { double* x; double* y; double* z; }d_n;
-		trixel_memory() : d_color(), d_n(), d_edges(), h_p1(NULL), d_p1(NULL) {}
+		VEC3_CUDA<T_fp> d_n;
+		void** rotate_helper_array;
+		trixel_memory() : d_color(), d_n(), d_edges(), h_p1(NULL), d_p1(NULL), rotate_helper_array(NULL) {}
 	}h_mem;void* d_mem;
 	struct kd_tree {
 		struct kd_tree_node {
 			s64 tri_index = -1;
 			kd_leaf h_bound;
 			int cut_flag;
-			double s1,s2;
+			T_fp s1,s2;
 			u8 is_leaf = 0;
 			s64  l, m, r;
 			s64 left_node = -2;
@@ -80,24 +81,25 @@ public:
 		sorted_x0_leafs(NULL), sorted_x1_leafs(NULL), sorted_y0_leafs(NULL), sorted_y1_leafs(NULL), sorted_z0_leafs(NULL), sorted_z1_leafs(NULL),
 		indexed_leafs(NULL), num_trixels(0), num_vertices(0), num_voxels(0) {}
 
-	Trixel(s64 num_t, double* points_data, Color* color_data) : Trixel() {
+	Trixel(s64 num_t, T_fp* points_data, Color* color_data) : Trixel() {
 		num_trixels = num_t;
 
-		h_mem.h_p1 = (trixel_memory::points*)malloc(sizeof(trixel_memory::points) * num_trixels);
-		cudaMalloc((void**)&h_mem.d_p1, sizeof(trixel_memory::points) * num_trixels);
+		h_mem.h_p1 = (VEC3<T_fp>*)malloc(sizeof(VEC3<T_fp>) * num_trixels);
+		cudaMalloc((void**)&h_mem.d_p1, sizeof(VEC3<T_fp>) * num_trixels);
 
-		cudaMalloc((void**)&h_mem.d_edges.e1.x, sizeof(double) * num_trixels);
-		cudaMalloc((void**)&h_mem.d_edges.e1.y, sizeof(double) * num_trixels);
-		cudaMalloc((void**)&h_mem.d_edges.e1.z, sizeof(double) * num_trixels);
+		cudaMalloc((void**)&h_mem.d_edges.e1.x, sizeof(T_fp) * num_trixels);
+		cudaMalloc((void**)&h_mem.d_edges.e1.y, sizeof(T_fp) * num_trixels);
+		cudaMalloc((void**)&h_mem.d_edges.e1.z, sizeof(T_fp) * num_trixels);
 
-		cudaMalloc((void**)&h_mem.d_edges.e2.x, sizeof(double) * num_trixels);
-		cudaMalloc((void**)&h_mem.d_edges.e2.y, sizeof(double) * num_trixels);
-		cudaMalloc((void**)&h_mem.d_edges.e2.z, sizeof(double) * num_trixels);
+		cudaMalloc((void**)&h_mem.d_edges.e2.x, sizeof(T_fp) * num_trixels);
+		cudaMalloc((void**)&h_mem.d_edges.e2.y, sizeof(T_fp) * num_trixels);
+		cudaMalloc((void**)&h_mem.d_edges.e2.z, sizeof(T_fp) * num_trixels);
 
-		cudaMalloc((void**)&h_mem.d_n.x, sizeof(double) * num_trixels);
-		cudaMalloc((void**)&h_mem.d_n.y, sizeof(double) * num_trixels);
-		cudaMalloc((void**)&h_mem.d_n.z, sizeof(double) * num_trixels);
+		cudaMalloc((void**)&h_mem.d_n.x, sizeof(T_fp) * num_trixels);
+		cudaMalloc((void**)&h_mem.d_n.y, sizeof(T_fp) * num_trixels);
+		cudaMalloc((void**)&h_mem.d_n.z, sizeof(T_fp) * num_trixels);
 
+		cudaMalloc((void**)&h_mem.rotate_helper_array, sizeof(void*) * 4);
 		cudaMalloc((void**)&h_mem.d_color.c, sizeof(u32) * num_trixels);
 		cudaMalloc((void**)&h_mem.d_color.rad, sizeof(Color::radiance) * num_trixels);
 
@@ -113,11 +115,11 @@ public:
 		cudaMemcpy(d_tree, &h_tree, sizeof(kd_tree), cudaMemcpyHostToDevice);
 
 
-		cudaMalloc((void**)&d_points_init_data, sizeof(double) * num_trixels * 3 * 3);
-		h_points_init_data = (double*)malloc(sizeof(double) * num_trixels * 3 * 3);
+		cudaMalloc((void**)&d_points_init_data, sizeof(T_fp) * num_trixels * 3 * 3);
+		h_points_init_data = (T_fp*)malloc(sizeof(T_fp) * num_trixels * 3 * 3);
 
-		cudaMemcpy(h_points_init_data, points_data, sizeof(double) * num_trixels * 3 * 3, cudaMemcpyHostToHost);
-		cudaMemcpy(d_points_init_data, points_data, sizeof(double) * num_trixels * 3 * 3, cudaMemcpyHostToDevice);
+		cudaMemcpy(h_points_init_data, points_data, sizeof(T_fp) * num_trixels * 3 * 3, cudaMemcpyHostToHost);
+		cudaMemcpy(d_points_init_data, points_data, sizeof(T_fp) * num_trixels * 3 * 3, cudaMemcpyHostToDevice);
 
 		cudaMemcpy(h_mem.d_color.c, color_data->c, sizeof(u32) * num_trixels, cudaMemcpyHostToDevice);
 		cudaMemcpy(h_mem.d_color.rad, color_data->rad, sizeof(Color::radiance) * num_trixels, cudaMemcpyHostToDevice);
@@ -162,7 +164,7 @@ public:
 			l = cur_node->l;
 			m = cur_node->m;
 			r = cur_node->r;
-			double max_split = (sorted_x1_leafs[r].x1 - sorted_x1_leafs[l].x1);
+			T_fp max_split = (sorted_x1_leafs[r].x1 - sorted_x1_leafs[l].x1);
 			int max_cut = 0;
 			if (sorted_x0_leafs[r].x0 - sorted_x0_leafs[l].x0 > max_split) {
 				max_split = sorted_x0_leafs[r].x0 - sorted_x0_leafs[l].x0;
@@ -229,8 +231,6 @@ public:
 				}
 				for (s64 i = l, l_i = 0, r_i = m - l+1; i <= r; i++) {
 					// SELECT THE PIVOT POINT
-					// right now only around right (x1,y1,z1) points, could be changed to consider bother left and right points
-					// and select the btter to pivot. Likely do an are based huersitic (see Joes notes) instead though.
 					switch (cur_node->cut_flag) {
 					case 0:
 						index_to_pivot = f_list[i].sorted_x1_index;
@@ -349,16 +349,21 @@ public:
 			switch (cur_node->cut_flag) {
 				//s1 is normal split s2 is extra adjusted plane
 			case 3:
+				//left = 1; right = 2;
 			case 0:
 				h_tree.h_nodes[read_index].s2 = h_tree.h_nodes[write_index - right].h_bound.x0;
 				h_tree.h_nodes[read_index].s1 = h_tree.h_nodes[write_index - left].h_bound.x1;
 				break;
 			case 4:
+				//left = 1; right = 2;
+
 			case 1:
 				h_tree.h_nodes[read_index].s2 = h_tree.h_nodes[write_index - right].h_bound.y0;
 				h_tree.h_nodes[read_index].s1 = h_tree.h_nodes[write_index - left].h_bound.y1;
 				break;
 			case 5:
+				//left = 1; right = 2;
+
 			case 2:
 				h_tree.h_nodes[read_index].s2 = h_tree.h_nodes[write_index - right].h_bound.z0;
 				h_tree.h_nodes[read_index].s1 = h_tree.h_nodes[write_index - left].h_bound.z1;

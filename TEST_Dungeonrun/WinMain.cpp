@@ -7,11 +7,11 @@
 
 static bool* g_running = (bool*)malloc(sizeof(bool));
 static Input* g_input = new Input();
-struct resolution { u32 h; u32 w; double ar; } g_window_res, g_render_res;
+struct resolution { u32 h; u32 w; T_fp ar; } g_window_res, g_render_res;
 #define GLOBALINPUT g_input
 static  BITMAPINFO g_bitmap_info;
 
-void read_ply(const char* file_name, double** points_list, s64* num_tri, kd_leaf_sort** leaf_list, kd_vertex** vertex_list, s64* num_vert, u8 mode);
+void read_ply(const char* file_name, T_fp** points_list, s64* num_tri, kd_leaf_sort** leaf_list, kd_vertex** vertex_list, s64* num_vert, u8 mode);
 
 
 LRESULT CALLBACK window_callback(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
@@ -26,7 +26,7 @@ LRESULT CALLBACK window_callback(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
         GetClientRect(hwnd, &rect);
         g_window_res.w = rect.right - rect.left;
         g_window_res.h = rect.bottom - rect.top;
-        g_window_res.ar = (double)g_window_res.w / g_window_res.h;
+        g_window_res.ar = (T_fp)g_window_res.w / g_window_res.h;
         g_bitmap_info.bmiHeader.biSize = sizeof(g_bitmap_info.bmiHeader);
         g_bitmap_info.bmiHeader.biWidth = g_window_res.w;
         g_bitmap_info.bmiHeader.biHeight = g_window_res.h;
@@ -68,11 +68,11 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 
     Camera* main_cam = new Camera(g_render_res.w, g_render_res.h, // res_w, res_h
         g_render_res.ar * .024, .024, .055, // f_w, f_h, focal_len
-       -0.05, .10, .32, // position
-        -0.05, 0.10, 0.0, // look at
+       0.0, 0.10, 1.0, // position
+        0.100, 0.100, 0.00, // look at
         0.0, 1.0, 0.0// up
     );
-    double* points_for_trixels = 0, *points_for_trixels_1 = 0, * points_for_trixels_2 = 0;
+    T_fp* points_for_trixels = 0, *points_for_trixels_1 = 0, * points_for_trixels_2 = 0;
     kd_leaf_sort* kd_leaf_list = 0, *kd_leaf_list_1 = 0, * kd_leaf_list_2 = 0;
     kd_vertex* vertices_for_trixels;
     Color color_for_trixels;
@@ -86,10 +86,10 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
         QueryPerformanceFrequency(&perf);
         performance_frequency = (float)perf.QuadPart;
     }
-    //read_ply("dump_test.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 0);
+    read_ply("dump_test.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 0);
 
     //HUGE DRAGON BOI
-    //read_ply("dragon_vrip_mod.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 0);
+   // read_ply("dragon_vrip_mod.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 0);
     //HUGE BUDDHA BOU
     //read_ply("happy_vrip_mod.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 0);
     //BABy TRIXEL LIST
@@ -110,7 +110,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
     memcpy(kd_leaf_list + num_trixels_1 - 1, kd_leaf_list_2, sizeof(kd_leaf_sort) * num_trixels_2);
     free(points_for_trixels_1);    free(points_for_trixels_2);    free(kd_leaf_list_1);    free(kd_leaf_list_2);
     */
-    read_ply("dump.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 1);
+    //read_ply("dump.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 1);
 
     //BIG BOY RABBIT
     //read_ply("dump23.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert,1);
@@ -161,6 +161,9 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
 
 
 
+    //Quaternion s = Quaternion(200000000);
+    //s.initialize_CUDA();
+    //s._free();
 
     LARGE_INTEGER frame_begin_time;
     LARGE_INTEGER frame_end_time;
@@ -171,6 +174,19 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
     #define TICK_RATE 30
     float cur_tick = 0;
     float cam_speed = .05f;
+    Quaternion::quaternion_vec* q_vec = (Quaternion::quaternion_vec*)malloc(sizeof(Quaternion::quaternion_vec) * 2);
+    // float 4 { ypos, yneg, xpos, xneg
+    { T_fp temp[4] = { 0.0f, 0.0f, 0.01f, 0.01f };  q_vec->i = temp; }
+    { T_fp temp[4] = { 0.0010f, 0.001f, 0.0f, 0.0f };  q_vec->j = temp; }
+    { T_fp temp[4] = { 0.000f, 0.0f, 0.0f, 0.0f };  q_vec->k = temp; }
+    { T_fp temp[4] = { 1.00f, 1.0f, 1.00f, 1.0f };  q_vec->w = temp; }
+
+    
+
+    Quaternion a = Quaternion(2, 3);
+    a._memset(*q_vec);
+    a.set_rot_matrix(3);
+
     while (*g_running) {
         if (cur_tick >= 1 / (TICK_RATE * delta_time)) {
             for (int i = 0; i < BUTTON_COUNT; i++) {
@@ -186,37 +202,35 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
                 g_input->translate.dx = main_cam->o_prop.n.x * cam_speed;
                 g_input->translate.dy = main_cam->o_prop.n.y * cam_speed;
                 g_input->translate.dz = main_cam->o_prop.n.z * cam_speed;
-                main_cam->transform(g_input->translate, TRANSLATE_XYZ);
+                main_cam->transform(g_input->translate, NULL, TRANSLATE_XYZ);
             }
             if (is_click_hold(BUTTON_S)) {
                 g_input->translate.dx = -main_cam->o_prop.n.x * cam_speed;
                 g_input->translate.dy = -main_cam->o_prop.n.y * cam_speed;
                 g_input->translate.dz = -main_cam->o_prop.n.z * cam_speed;
-                main_cam->transform(g_input->translate, TRANSLATE_XYZ);
+                main_cam->transform(g_input->translate, NULL, TRANSLATE_XYZ);
             }
             if (is_click_hold(BUTTON_Q)) { // STRAFE LEFT
                 g_input->translate.dx = -main_cam->o_prop.u.x * cam_speed;
                 g_input->translate.dy = -main_cam->o_prop.u.y * cam_speed;
                 g_input->translate.dz = -main_cam->o_prop.u.z * cam_speed;
-                main_cam->transform(g_input->translate, TRANSLATE_XYZ);
+                main_cam->transform(g_input->translate, NULL, TRANSLATE_XYZ);
             }
             if (is_click_hold(BUTTON_E)) {// STRAFE RIGHT
                 g_input->translate.dx = main_cam->o_prop.u.x * cam_speed;
                 g_input->translate.dy = main_cam->o_prop.u.y * cam_speed;
                 g_input->translate.dz = main_cam->o_prop.u.z * cam_speed;
-                main_cam->transform(g_input->translate, TRANSLATE_XYZ);
+                main_cam->transform(g_input->translate, NULL, TRANSLATE_XYZ);
             }
-            if (is_button_release(BUTTON_R)) {
-                g_input->translate.dx = .5;
-                g_input->translate.dy = .5;
-                g_input->translate.dz = .5;
-                main_cam->transform(g_input->translate, SCALE_XYZ);
+            if (is_click_hold(BUTTON_R)) {
+                g_input->translate.dx = 3.0;
+                g_input->translate.dy = 0;
+                g_input->translate.dz = 0.0;
+                main_cam->transform(g_input->translate, &a, ROTATE_TRI_PY);
             }
-            if (is_button_release(BUTTON_T)) {
-                g_input->translate.dx = 2.0;
-                g_input->translate.dy = 2.0;
-                g_input->translate.dz = 2.0;
-                main_cam->transform(g_input->translate, SCALE_XYZ);
+            if (is_click_hold(BUTTON_T)) {
+                main_cam->transform(g_input->translate, &a, ROTATE_CAM_NY);
+
             }
             cur_tick = 0;
         }
@@ -231,6 +245,10 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
         printf("Last Cuda Error: %s\n", cudaGetErrorString(cudaPeekAtLastError()));
         printf("FPS: %f \n", 1 / delta_time);
         printf("CamerPos [x:%f y:%f z:%f] \n", main_cam->o_prop.pos.x, main_cam->o_prop.pos.y, main_cam->o_prop.pos.z);
+        printf("Camera N [x:%f y:%f z:%f] \n", main_cam->o_prop.n.x, main_cam->o_prop.n.y, main_cam->o_prop.n.z);
+        printf("Camera U [x:%f y:%f z:%f] \n", main_cam->o_prop.u.x, main_cam->o_prop.u.y, main_cam->o_prop.u.z);
+        printf("Camera V [x:%f y:%f z:%f] \n", main_cam->o_prop.v.x, main_cam->o_prop.v.y, main_cam->o_prop.v.z);
+
         wprintf(L"\x1b[u");
         cur_tick++;
     } 

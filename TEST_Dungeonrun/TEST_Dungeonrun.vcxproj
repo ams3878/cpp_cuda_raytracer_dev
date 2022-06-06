@@ -79,29 +79,36 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <CudaCompile Include="Camera.cu" />
+    <CudaCompile Include="Quaternion.cu" />
     <CudaCompile Include="vector.cu" />
     <CudaCompile Include="Trixel.cu" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Color.cpp" />
+    <ClCompile Include="Quaternion.cpp" />
     <ClCompile Include="read_ply.cpp" />
     <ClCompile Include="vector.cpp" />
+    <ClCompile Include="Voxel.cpp" />
     <ClCompile Include="WinMain.cpp" />
     <ClCompile Include="window_functions.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h" />
     <ClInclude Include="Color.h" />
+    <ClInclude Include="framework.cuh" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="Quaternion.h" />
     <ClInclude Include="sort.h" />
     <ClInclude Include="vector.cuh" />
     <ClInclude Include="platform_common.h" />
     <ClInclude Include="Trixel.h" />
     <ClInclude Include="Vector.h" />
+    <ClInclude Include="Voxel.h" />
     <ClInclude Include="window_functions.h" />
   </ItemGroup>
   <ItemGroup>
+    <None Include="cpp.hint" />
     <None Include="dragon_vrip_mod.ply" />
     <None Include="dump.ply" />
     <None Include="dump_test.ply" />
