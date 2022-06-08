@@ -158,6 +158,7 @@ cudaError_t Camera::transform(Input::translate_vector tv, Quaternion* q, u8 tran
 	case TRANSLATE_XYZ:	
 		o_prop.pos.x += tv.dx; o_prop.pos.y += tv.dy;	o_prop.pos.z += tv.dz;
 	case ROTATE_TRI_PY:
+	case ROTATE_TRI_NY:
 		cuda_err = transform_camera_voxel_device_memory(this, tv, q, (transform_select - TRI_TAG_OFFSET) * 9, transform_select);
 		cuda_err = transform_trixels_device(trixels_list, this, tv, q, (transform_select - TRI_TAG_OFFSET) * 9, transform_select);
 		break;

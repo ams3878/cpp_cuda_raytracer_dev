@@ -40,10 +40,28 @@
 44, 24, 15,  8, 23,  7,  6,  5 };
 
   template <typename T>
-  struct VEC3_CUDA { union { T* x; T* r; }; union { T* y; T* g; }; union { T* z; T* b; }; };
+  struct VEC3_CUDA {
+      union { T* x; T* r; T* i; }; union { T* y; T* g; T* j; }; union { T* z; T* b; T* k; };
+  VEC3_CUDA() :x(), y(), z() {};
+  VEC3_CUDA(s64 s) { 
+      x = (T*)malloc(sizeof(T) * s); 
+      y = (T*)malloc(sizeof(T) * s);
+      z = (T*)malloc(sizeof(T) * s);  } 
+  };
 
   template <typename T>
-  struct VEC3 { union { T x; T r; }; union { T y; T g; }; union { T z; T b; }; };
+  struct VEC3 {
+      union { T x; T r; T i; }; union { T y; T g; T j; }; union { T z; T b; T k; };
+      VEC3() : x(), y(), z() {};
+      VEC3(T _x, T _y, T _z) { x = _x; y = _y; z = _z; };
+      template <typename T2>
+      void rotate(T2 qx, T2 qy, T2 qz) {
+          T temp_x = x, temp_y = y, temp_z = z;
+          x = temp_x * qx.i + temp_y * qx.j + temp_z * qx.k;
+          y = temp_x * qy.i + temp_y * qy.j + temp_z * qy.k;
+          z = temp_x * qz.i + temp_y * qz.j + temp_z * qz.k;
+      };
+  };
 
   template <typename T>
   T vector_norm(T scalor) {

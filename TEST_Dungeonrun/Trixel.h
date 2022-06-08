@@ -52,14 +52,14 @@ public:
 	T_fp* d_points_init_data; //tri list data [p0x, p0y, p0z, p1x, p1ym p1z, p2x, p2y p3z,....for each triangle]
 	T_fp* h_points_init_data; // i.e num_trixel * 3(points) * 3(component)
 	struct trixel_memory {
-		VEC3<T_fp> *h_p1, *d_p1;
+		VEC3_CUDA<T_fp> h_p1, d_p1;
 		struct edges {
 			VEC3_CUDA<T_fp> e1, e2;//,e3;
 		}d_edges;
 		Color d_color;
 		VEC3_CUDA<T_fp> d_n;
 		void** rotate_helper_array;
-		trixel_memory() : d_color(), d_n(), d_edges(), h_p1(NULL), d_p1(NULL), rotate_helper_array(NULL) {}
+		trixel_memory() : d_color(), d_n(), d_edges(), h_p1(), d_p1(), rotate_helper_array(NULL) {}
 	}h_mem;void* d_mem;
 	struct kd_tree {
 		struct kd_tree_node {
@@ -84,8 +84,10 @@ public:
 	Trixel(s64 num_t, T_fp* points_data, Color* color_data) : Trixel() {
 		num_trixels = num_t;
 
-		h_mem.h_p1 = (VEC3<T_fp>*)malloc(sizeof(VEC3<T_fp>) * num_trixels);
-		cudaMalloc((void**)&h_mem.d_p1, sizeof(VEC3<T_fp>) * num_trixels);
+		h_mem.h_p1 = VEC3_CUDA<T_fp>(num_trixels);
+		cudaMalloc((void**)&h_mem.d_p1.x, sizeof(T_fp) * num_trixels);
+		cudaMalloc((void**)&h_mem.d_p1.y, sizeof(T_fp) * num_trixels);
+		cudaMalloc((void**)&h_mem.d_p1.z, sizeof(T_fp) * num_trixels);
 
 		cudaMalloc((void**)&h_mem.d_edges.e1.x, sizeof(T_fp) * num_trixels);
 		cudaMalloc((void**)&h_mem.d_edges.e1.y, sizeof(T_fp) * num_trixels);

@@ -86,7 +86,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
         QueryPerformanceFrequency(&perf);
         performance_frequency = (float)perf.QuadPart;
     }
-    read_ply("dump_test.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 0);
+   // read_ply("dump_test.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 0);
 
     //HUGE DRAGON BOI
    // read_ply("dragon_vrip_mod.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 0);
@@ -110,7 +110,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
     memcpy(kd_leaf_list + num_trixels_1 - 1, kd_leaf_list_2, sizeof(kd_leaf_sort) * num_trixels_2);
     free(points_for_trixels_1);    free(points_for_trixels_2);    free(kd_leaf_list_1);    free(kd_leaf_list_2);
     */
-    //read_ply("dump.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 1);
+    read_ply("dump.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 1);
 
     //BIG BOY RABBIT
     //read_ply("dump23.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert,1);
@@ -177,7 +177,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
     Quaternion::quaternion_vec* q_vec = (Quaternion::quaternion_vec*)malloc(sizeof(Quaternion::quaternion_vec) * 2);
     // float 4 { ypos, yneg, xpos, xneg
     { T_fp temp[4] = { 0.0f, 0.0f, 0.01f, 0.01f };  q_vec->i = temp; }
-    { T_fp temp[4] = { 0.0010f, 0.001f, 0.0f, 0.0f };  q_vec->j = temp; }
+    { T_fp temp[4] = { 0.10f, -0.1f, 0.0f, 0.0f };  q_vec->j = temp; }
     { T_fp temp[4] = { 0.000f, 0.0f, 0.0f, 0.0f };  q_vec->k = temp; }
     { T_fp temp[4] = { 1.00f, 1.0f, 1.00f, 1.0f };  q_vec->w = temp; }
 
@@ -223,14 +223,10 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
                 main_cam->transform(g_input->translate, NULL, TRANSLATE_XYZ);
             }
             if (is_click_hold(BUTTON_R)) {
-                g_input->translate.dx = 3.0;
-                g_input->translate.dy = 0;
-                g_input->translate.dz = 0.0;
                 main_cam->transform(g_input->translate, &a, ROTATE_TRI_PY);
             }
             if (is_click_hold(BUTTON_T)) {
-                main_cam->transform(g_input->translate, &a, ROTATE_CAM_NY);
-
+                main_cam->transform(g_input->translate, &a, ROTATE_TRI_NY);
             }
             cur_tick = 0;
         }

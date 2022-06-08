@@ -21,6 +21,8 @@ typedef unsigned long long u64;
 constexpr auto TRANSLATE_XYZ = 30;
 constexpr auto TRI_TAG_OFFSET = 10;
 constexpr auto ROTATE_TRI_PY = 10;
+constexpr auto ROTATE_TRI_NY = 11;
+
 
 //The rotate tages are used for offset into rot matrix so they cannot be arbitray tags
 constexpr auto ROTATE_CAM_PY = 0;

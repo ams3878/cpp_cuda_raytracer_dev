@@ -16,7 +16,19 @@
 if (cudaStatus != cudaSuccess) {printf("%s launch failed: %s\n", #a, cudaGetErrorString(cudaStatus));}\
 cudaStatus = cudaDeviceSynchronize();\
 if (cudaStatus != cudaSuccess) {printf("cudaDeviceSynchronize returned error code %d after launching %s!\n",cudaStatus, #a);};
-
+template <typename T>
+ struct __device__ d_VEC3 {
+	union { T x; T r; T i; }; union { T y; T g; T j; }; union { T z; T b; T k; };
+	__device__ d_VEC3() : x(), y(), z() {};
+	__device__ d_VEC3(T _x, T _y, T _z) { x = _x; y = _y; z = _z; };
+	template <typename h_T>
+	__device__ void rotate(h_T qx, h_T qy, h_T qz) {
+		T temp_x = x, temp_y = y, temp_z = z;
+		x = temp_x * qx.i + temp_y * qx.j + temp_z * qx.k;
+		y = temp_x * qy.i + temp_y * qy.j + temp_z * qy.k;
+		z = temp_x * qz.i + temp_y * qz.j + temp_z * qz.k;
+	};
+};
 
 template <typename T>
 static __device__ void device_cross(T* cx, T* cy, T* cz, T ax, T ay, T az, T bx, T by, T bz) {
