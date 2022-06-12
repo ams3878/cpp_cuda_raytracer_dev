@@ -21,6 +21,7 @@
     <ClCompile Include="Quaternion.cpp">
       <Filter>Quaternion</Filter>
     </ClCompile>
+    <ClCompile Include="old_reference_functions.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h">
@@ -47,12 +48,17 @@
     <ClInclude Include="Color.h">
       <Filter>Color</Filter>
     </ClInclude>
-    <ClInclude Include="framework.h" />
     <ClInclude Include="Voxel.h" />
     <ClInclude Include="Quaternion.h">
       <Filter>Quaternion</Filter>
     </ClInclude>
     <ClInclude Include="framework.cuh" />
+    <ClInclude Include="typedefs.h">
+      <Filter>UTILS/MISC</Filter>
+    </ClInclude>
+    <ClInclude Include="framework.h">
+      <Filter>UTILS/MISC</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Camera">

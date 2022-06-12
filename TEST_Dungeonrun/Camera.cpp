@@ -1,7 +1,7 @@
 #ifndef CAMERA_CPP_TAG
 #define CAMERA_CPP_TAG
 #include "framework.h"
-
+#include <stdio.h>
 Camera::Camera(s32 r_w, s32 r_h,
 	T_fp f_w, T_fp f_h, T_fp fclen,
 	T_fp p_x, T_fp p_y, T_fp p_z,
@@ -130,8 +130,23 @@ cudaError_t Camera::init_camera_trixel_data(Trixel* t, s64 num_trixels) {
 	cudaMemcpy(d_trixels, &(h_trixels), sizeof(trixel_memory), cudaMemcpyHostToDevice);
 	return init_camera_trixel_device_memory(trixels_list, this);
 }
+
 cudaError_t Camera::init_camera_voxel_data(Trixel* t, s64 num_voxels) {
 	cudaError_t cuda_err;
+	h_voxels.obj_center.x = (T_fp)0.0;
+	h_voxels.obj_center.y = (T_fp)0.0;
+	h_voxels.obj_center.z = (T_fp)0.0;
+	h_voxels.init_face.x = o_prop.pos.x - h_voxels.obj_center.x;
+	h_voxels.init_face.y = o_prop.pos.y - h_voxels.obj_center.y;
+	h_voxels.init_face.z = o_prop.pos.z - h_voxels.obj_center.z;
+	h_voxels.init_face.d = sqrt(
+		((h_voxels.init_face.x ) * (h_voxels.init_face.x )) +
+		((h_voxels.init_face.y) * (h_voxels.init_face.y )) +
+		((h_voxels.init_face.z ) * (h_voxels.init_face.z )));
+	h_voxels.init_face.x /= h_voxels.init_face.d;
+	h_voxels.init_face.y /= h_voxels.init_face.d;
+	h_voxels.init_face.z /= h_voxels.init_face.d;
+	memcpy(&h_voxels.cur_face, &h_voxels.init_face, sizeof(VEC4<T_fp>));
 	cudaMalloc((void**)&h_voxels.s1, sizeof(T_fp) * num_voxels);
 	cudaMalloc((void**)&h_voxels.s2, sizeof(T_fp) * num_voxels);
 
@@ -140,27 +155,49 @@ cudaError_t Camera::init_camera_voxel_data(Trixel* t, s64 num_voxels) {
 
 	cudaMalloc((void**)&h_voxels.cut_flags, sizeof(voxel_memory::flag_tag) * num_voxels);
 
-	cudaMalloc((void**)&h_voxels.d_Bo, sizeof(voxel_memory::voxel_vector) * num_voxels);
-	cudaMalloc((void**)&(d_voxels), sizeof(voxel_memory));
+	h_voxels.h_Bo = (voxel_memory::voxel_vector*) malloc(sizeof(voxel_memory::voxel_vector) * num_voxels);
+	h_voxels.q = new Quaternion(num_voxels, 1);
+	h_voxels.next_rotation = new Quaternion(1, 1);
 
-	cudaMalloc((void**)&h_voxels.d_voxel_index_queue, sizeof(s32) * f_prop.res.count * (s32)ceil(sqrt((double)num_voxels)));
-	h_voxels.index_queue_offset = (s32)ceil(sqrt((double)num_voxels));
+	VEC4_CUDA<T_fp>* q_vec = new VEC4_CUDA<T_fp>(4);
+
+	for (int iii = 0; iii < 4; iii++) {
+		q_vec->complex.i[iii] = 0.0;
+		q_vec->complex.j[iii] = 0.0;
+		q_vec->complex.k[iii] = 0.0;
+		q_vec->w[iii] = 1.0;
+	}
+
+	cudaMemcpy(h_voxels.q->vec->i, q_vec->i, sizeof(T_fp), cudaMemcpyHostToDevice);
+	cudaMemcpy(h_voxels.q->vec->j, q_vec->j, sizeof(T_fp), cudaMemcpyHostToDevice);
+	cudaMemcpy(h_voxels.q->vec->k, q_vec->k, sizeof(T_fp), cudaMemcpyHostToDevice);
+	cudaMemcpy(h_voxels.q->vec->w, q_vec->w, sizeof(T_fp), cudaMemcpyHostToDevice);
+	delete(q_vec);
+	cudaMalloc((void**)&h_voxels.d_q, sizeof(Quaternion));
+	cudaMemcpy(h_voxels.d_q, h_voxels.q, sizeof(Quaternion), cudaMemcpyHostToDevice);
+	cudaMalloc((void**)&h_voxels.d_Bo, sizeof(voxel_memory::voxel_vector) * num_voxels);
+
+	cudaMalloc((void**)&h_voxels.d_voxel_index_queue, sizeof(s32) * f_prop.res.count * (s32)ceil(log2((double)num_voxels)));
+	h_voxels.index_queue_offset = (s32)ceil(log2((double)num_voxels));
 	h_voxels.num_voxels = num_voxels;
+
+	cudaMalloc((void**)&(d_voxels), sizeof(voxel_memory));
 	cudaMemcpy(d_voxels, &(h_voxels), sizeof(voxel_memory), cudaMemcpyHostToDevice);
 	cuda_err = init_camera_voxel_device_memory(trixels_list, this);
 	return cuda_err;
 }
 //**TODO** right now this just does ALL primitives, change to select primitives
 //ALSO REMBER IF YOU WANT TO DO THIS FOR PRIMITVIES MAKE SURE TO CALL TRANSFORM ON ALL CAMERAS, or else you will move the camera adn not the object
-cudaError_t Camera::transform(Input::translate_vector tv, Quaternion* q, u8 transform_select) {
+cudaError_t Camera::transform(VEC3<T_fp>* tv, Quaternion* q, volatile u8 transform_select) {
+
 	cudaError_t cuda_err;
 	switch (transform_select) {
 	case TRANSLATE_XYZ:	
-		o_prop.pos.x += tv.dx; o_prop.pos.y += tv.dy;	o_prop.pos.z += tv.dz;
+		o_prop.pos.x += tv->dx; o_prop.pos.y += tv->dy;	o_prop.pos.z += tv->dz;
 	case ROTATE_TRI_PY:
 	case ROTATE_TRI_NY:
-		cuda_err = transform_camera_voxel_device_memory(this, tv, q, (transform_select - TRI_TAG_OFFSET) * 9, transform_select);
-		cuda_err = transform_trixels_device(trixels_list, this, tv, q, (transform_select - TRI_TAG_OFFSET) * 9, transform_select);
+		cuda_err = transform_camera_voxel_device_memory(this, trixels_list, *tv, q, (ROTATE_TRI_PY - TRI_TAG_OFFSET) * 9, transform_select);
+		//cuda_err = transform_trixels_device(trixels_list, this, *tv, q, (ROTATE_TRI_NY - TRI_TAG_OFFSET) * 9, transform_select);
 		break;
 	case ROTATE_CAM_PY:
 	case ROTATE_CAM_NY:

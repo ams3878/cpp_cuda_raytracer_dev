@@ -5,7 +5,7 @@
 #include "Trixel.h"
 #define XYZ_MASK 0
 #define XYZCI_MASK 1
-void read_ply(const char* file_name, T_fp** points_list, s64* num_tri, kd_leaf_sort** kd_leafs, kd_vertex** vertex_list, s64* num_vert, u8 mode) {
+void read_ply(const char* file_name, T_fp** points_list, T_uint* num_tri, kd_leaf_sort** kd_leafs, kd_vertex** vertex_list, T_uint* num_vert, u8 mode) {
     std::ifstream input(file_name);
     std::string line;
     s64 triangle_index_offset = *num_tri;
@@ -17,7 +17,7 @@ void read_ply(const char* file_name, T_fp** points_list, s64* num_tri, kd_leaf_s
     struct point_vector { T_fp x; T_fp y; T_fp z; };
     *points_list = (T_fp*)malloc(sizeof(T_fp) * *num_tri * 3 * 3);
     T_fp confidence, intesity;
-    for (u64 i = 0; i < *num_vert; i++) {
+    for (T_luint i = 0; i < *num_vert; i++) {
         switch(mode){
         case XYZ_MASK:
             input >> (*vertex_list)[i].x >> (*vertex_list)[i].y >> (*vertex_list)[i].z;
@@ -28,7 +28,7 @@ void read_ply(const char* file_name, T_fp** points_list, s64* num_tri, kd_leaf_s
         }
     } 
     int c, p1, p2, p3;
-    for (s64 i = 0,leaf_index=0; i < (* num_tri) * 3;) {
+    for (T_luint i = 0,leaf_index=0; i < (* num_tri) * 3;) {
         input >> c >> p1 >> p2 >> p3;
         if (c == 3) {
             (*kd_leafs)[leaf_index].x0 = min((*vertex_list)[p1].x, min((*vertex_list)[p2].x, (*vertex_list)[p3].x));

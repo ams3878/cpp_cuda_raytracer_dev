@@ -1,5 +1,5 @@
 #pragma once
-template <typename T> int merge_sort(T* old_list, T* new_list, s64 size, u8 component_select);
+template <typename T> int merge_sort(T* old_list, T* new_list, T_uint size, u8 component_select);
 #define SORT_NO_TAG 0
 #define SORT_X0_TAG 1
 #define SORT_Y0_TAG 2
@@ -8,25 +8,25 @@ template <typename T> int merge_sort(T* old_list, T* new_list, s64 size, u8 comp
 #define SORT_Y1_TAG 5
 #define SORT_Z1_TAG 6
 
-template <typename T> int merge_sort(T* old_list, T* new_list, s64 size, u8 component_select) {
+template <typename T> int merge_sort(T* old_list, T* new_list, T_uint size, u8 component_select) {
 	merge_recurse(old_list, 0, size - 1, new_list, component_select);
 	return 0;
 }
 
-template <typename T> void merge_recurse(T* r_list, s64 l, s64 r, T* w_list, u8 component_select) {
+template <typename T> void merge_recurse(T* r_list, T_uint l, T_uint r, T* w_list, u8 component_select) {
 	if (l >= r) { return; }
-	u64 m = l + (r - l) / 2;
+	T_uint m = l + (r - l) / 2;
 	merge_recurse(r_list, l, m, w_list, component_select);
 	merge_recurse(r_list, m+1, r, w_list, component_select);
 	_merge(r_list, l, m, r, w_list, component_select);
 	return;
 }
 
-template <typename T> void _merge(T* r_list, s64 l, s64 m, s64 r, T* w_list, u8 component_select) {
-	u64 i = l;
-	u64 size = r - l + 1;
-	u64 start = l;
-	u64 m_start = m;
+template <typename T> void _merge(T* r_list, T_uint l, T_uint m, T_uint r, T* w_list, u8 component_select) {
+	T_uint i = l;
+	T_uint size = r - l + 1;
+	T_uint start = l;
+	T_uint m_start = m;
 	bool comparator = false;
 	while(l <= m_start && r > m){
 		//**TODO** make comparitor passed as funciton to generalize		

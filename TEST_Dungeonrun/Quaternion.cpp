@@ -1,76 +1,95 @@
 #include "framework.h"
+
+T_fp Quaternion::_i(T_uint index) const { return vec->complex.i[index];}
+T_fp Quaternion::_j(T_uint index) const { return vec->complex.j[index];}
+T_fp Quaternion::_k(T_uint index) const { return vec->complex.k[index];}
+T_fp Quaternion::_w(T_uint index) const { return vec->w[index];}
+
 Quaternion::Quaternion() {
-	h_vec.i = (T_fp*)malloc(sizeof(T_fp));
-	h_vec.j = (T_fp*)malloc(sizeof(T_fp));
-	h_vec.k = (T_fp*)malloc(sizeof(T_fp));
-	h_vec.w = (T_fp*)malloc(sizeof(T_fp));
-	h_rot_m = (T_fp*)malloc(sizeof(T_fp) * 9);
-	d_rot_m = NULL;
-	size = 1;
+	vec = NULL;
+	d_vec = NULL;
+	rot_m = NULL;
+	size = 0;
+	isCUDA = false;
 }
-Quaternion::Quaternion(u32 s) {
-	h_vec.i = (T_fp*)malloc(sizeof(T_fp) * s);
-	h_vec.j = (T_fp*)malloc(sizeof(T_fp) * s);
-	h_vec.k = (T_fp*)malloc(sizeof(T_fp) * s);
-	h_vec.w = (T_fp*)malloc(sizeof(T_fp) * s);
-	h_rot_m = (T_fp*)malloc(sizeof(T_fp) * 9 * s);
-	d_rot_m = NULL;
-	size = s;
+Quaternion::Quaternion(u32 s) : Quaternion() {
+	if (s > 0) {
+		vec = new VEC4_CUDA<T_fp>(s);
+		rot_m = new VEC3_CUDA<VEC3_CUDA<T_fp>>(1);
+		rot_m->x = new VEC3_CUDA<T_fp>(s);
+		rot_m->y = new VEC3_CUDA<T_fp>(s);
+		rot_m->z = new VEC3_CUDA<T_fp>(s);
+
+		size = s;
+	}
 }
-Quaternion::Quaternion(u32 s, int c_flag) : Quaternion(s){
-	if (c_flag & 1) { initialize_CUDA(); }
-	//if (c_flag & 2) { _memset(c_flag >> 16); }
+Quaternion::Quaternion(u32 s, int c_flag) : Quaternion((c_flag & 1)?0:s) {
+	if (c_flag & 1) { 
+		size = s;
+		isCUDA = true;
+		initialize_CUDA(); }
 }
-int Quaternion::set_rot_matrix(int s_flag) {
-	if (s_flag & 1) { set_rot_matrix(); }
-	if (s_flag & 2) { set_rot_matrix_CUDA(); }
+int Quaternion::set_rot_matrix(Quaternion q) {
+	if (isCUDA) { set_rot_matrix_CUDA(q.rot_m); }
+	else { set_rot_matrix(); }
 	return 0;
 }
 
 int Quaternion::set_rot_matrix() {
-	for (int i = 0, ii = 0; i < size; i++, ii+=9) {		
-		h_rot_m[ii] = 1 - 2 * h_vec.j[i] * h_vec.j[i] - 2 * h_vec.k[i] * h_vec.k[i];
-		h_rot_m[ii + 1] = 2 * h_vec.i[i] * h_vec.j[i] - 2 * h_vec.k[i] * h_vec.w[i];
-		h_rot_m[ii + 2] = 2 * h_vec.i[i] * h_vec.k[i] + 2 * h_vec.j[i] * h_vec.w[i];
-		h_rot_m[ii + 3] = 2 * h_vec.i[i] * h_vec.j[i] + 2 * h_vec.k[i] * h_vec.w[i];
-		h_rot_m[ii + 4] = 1 - 2 * h_vec.i[i] * h_vec.i[i] - 2 * h_vec.k[i] * h_vec.k[i];
-		h_rot_m[ii + 5] = 2 * h_vec.j[i] * h_vec.k[i] - 2 * h_vec.i[i] * h_vec.w[i];
-		h_rot_m[ii + 6] = 2 * h_vec.i[i] * h_vec.k[i] - 2 * h_vec.j[i] * h_vec.w[i];
-		h_rot_m[ii + 7] = 2 * h_vec.j[i] * h_vec.k[i] + 2 * h_vec.i[i] * h_vec.w[i];
-		h_rot_m[ii + 8] = 1 - 2 * h_vec.i[i] * h_vec.i[i] - 2 * h_vec.j[i] * h_vec.j[i];
+	for (T_uint i = 0, ii = 0; i < size; i++, ii+=9) {
+
+		rot_m->x->i[i] = 1 - 2 * _j(i) * _j(i) - 2 * _k(i) * _k(i);
+		rot_m->x->j[i] = 2 * _i(i) * _j(i) - 2 * _k(i) * _w(i);
+		rot_m->x->k[i] = 2 * _i(i) * _k(i) + 2 * _j(i) * _w(i);
+
+		rot_m->y->i[i] = 2 * _i(i) * _j(i) + 2 * _k(i) * _w(i);
+		rot_m->y->k[i] = 1 - 2 * _i(i) * _i(i) - 2 * _k(i) * _k(i);
+		rot_m->y->j[i] = 2 * _j(i) * _k(i) - 2 * _i(i) * _w(i);
+
+		rot_m->z->i[i] = 2 * _i(i) * _k(i) - 2 * _j(i) * _w(i);
+		rot_m->z->j[i] = 2 * _j(i) * _k(i) + 2 * _i(i) * _w(i);
+		rot_m->z->k[i] = 1 - 2 * _i(i) * _i(i) - 2 * _j(i) * _j(i);
+		
 	}
+
 	return 0;
 };
 
-   int Quaternion::_memset(Quaternion::quaternion_vec v) {
+   int Quaternion::_memset(VEC4_CUDA<T_fp>* v) {
 //	memcpy(h_vec, v, sizeof(quaternion_vec) * size);
-	memcpy(h_vec.i, v.i, sizeof(T_fp) * size);
-	memcpy(h_vec.j, v.j, sizeof(T_fp) * size);
-	memcpy(h_vec.k, v.k, sizeof(T_fp) * size);
-	memcpy(h_vec.w, v.w, sizeof(T_fp) * size);
+	memcpy(vec->complex.i, v->complex.i, sizeof(T_fp) * size);
+	memcpy(vec->complex.j, v->complex.j, sizeof(T_fp) * size);
+	memcpy(vec->complex.k, v->complex.k, sizeof(T_fp) * size);
+	memcpy(vec->w, v->w, sizeof(T_fp) * size);
 	return 0;
 
 }
 int Quaternion::_memset(T_fp* _w, T_fp* _i, T_fp* _j, T_fp* _k) {
-	memcpy(h_vec.i, _i, sizeof(T_fp) * size);
-	memcpy(h_vec.j, _j, sizeof(T_fp) * size);
-	memcpy(h_vec.k, _k, sizeof(T_fp) * size);
-	memcpy(h_vec.w, _w, sizeof(T_fp) * size);
+	memcpy(vec->complex.i, _i, sizeof(T_fp) * size);
+	memcpy(vec->complex.j, _j, sizeof(T_fp) * size);
+	memcpy(vec->complex.k, _k, sizeof(T_fp) * size);
+	memcpy(vec->w, _w, sizeof(T_fp) * size);
 	return 0;
 
 }
 int Quaternion::_memset(int val) {
-	memset(h_vec.i, val, sizeof(T_fp) * size);
-	memset(h_vec.j, val, sizeof(T_fp) * size);
-	memset(h_vec.k, val, sizeof(T_fp) * size);
-	memset(h_vec.w, val, sizeof(T_fp) * size);
+	memset(vec->complex.i, val, sizeof(T_fp) * size);
+	memset(vec->complex.j, val, sizeof(T_fp) * size);
+	memset(vec->complex.k, val, sizeof(T_fp) * size);
+	memset(vec->w, val, sizeof(T_fp) * size);
 	return 0;
 
 }
 
-int Quaternion::_free() {
-	free(h_vec.i); free(h_vec.j);  free(h_vec.k);  free(h_vec.w); 
-	cudaFree(d_vec.i); cudaFree(d_vec.j);  cudaFree(d_vec.k);  cudaFree(d_vec.w);
+int Quaternion::_free(int flag) {
+	switch (flag) {
+	case 0:
+		free(vec->complex.i); free(vec->complex.j);  free(vec->complex.k);  free(vec->w);
+		break;
+	case 1:
+		cudaFree(vec->complex.i); cudaFree(vec->complex.j);  cudaFree(vec->complex.k);  cudaFree(vec->w);
+		break;
+	}
 	return 0;
 }
 

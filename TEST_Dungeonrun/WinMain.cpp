@@ -11,7 +11,7 @@ struct resolution { u32 h; u32 w; T_fp ar; } g_window_res, g_render_res;
 #define GLOBALINPUT g_input
 static  BITMAPINFO g_bitmap_info;
 
-void read_ply(const char* file_name, T_fp** points_list, s64* num_tri, kd_leaf_sort** leaf_list, kd_vertex** vertex_list, s64* num_vert, u8 mode);
+void read_ply(const char* file_name, T_fp** points_list, T_uint* num_tri, kd_leaf_sort** leaf_list, kd_vertex** vertex_list, T_uint* num_vert, u8 mode);
 
 
 LRESULT CALLBACK window_callback(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lParam) {
@@ -41,7 +41,7 @@ LRESULT CALLBACK window_callback(HWND hwnd, UINT uMsg, WPARAM wParam, LPARAM lPa
     return result;
 }
 
-int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
+int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance, _In_ LPSTR lpCmdLine, _In_ int nShowCmd)
 {
     float delta_time = 0.016666f;
     LARGE_INTEGER create_window_begin_time;
@@ -76,7 +76,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
     kd_leaf_sort* kd_leaf_list = 0, *kd_leaf_list_1 = 0, * kd_leaf_list_2 = 0;
     kd_vertex* vertices_for_trixels;
     Color color_for_trixels;
-    s64 num_trixels_1 = 0, num_trixels_2 = 0, num_trixel_vert = 0, tot_num_trixels = 0;
+    T_uint num_trixels_1 = 0, num_trixels_2 = 0, num_trixel_vert = 0, tot_num_trixels = 0;
 
     LARGE_INTEGER read_scene_begin_time;
     QueryPerformanceCounter(&read_scene_begin_time);
@@ -86,10 +86,10 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
         QueryPerformanceFrequency(&perf);
         performance_frequency = (float)perf.QuadPart;
     }
-   // read_ply("dump_test.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 0);
+    //read_ply("dump_test.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 0);
 
     //HUGE DRAGON BOI
-   // read_ply("dragon_vrip_mod.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 0);
+    //read_ply("dragon_vrip_mod.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 0);
     //HUGE BUDDHA BOU
     //read_ply("happy_vrip_mod.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 0);
     //BABy TRIXEL LIST
@@ -110,28 +110,28 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
     memcpy(kd_leaf_list + num_trixels_1 - 1, kd_leaf_list_2, sizeof(kd_leaf_sort) * num_trixels_2);
     free(points_for_trixels_1);    free(points_for_trixels_2);    free(kd_leaf_list_1);    free(kd_leaf_list_2);
     */
-    read_ply("dump.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 1);
+    //read_ply("dump.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 1);
 
     //BIG BOY RABBIT
-    //read_ply("dump23.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert,1);
+    read_ply("dump23.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert,1);
 
     color_for_trixels.c = (u32*)malloc(sizeof(u32) * tot_num_trixels);
     color_for_trixels.rad = (Color::radiance*)malloc(sizeof(Color::radiance) * tot_num_trixels);
 
-    for (int trixel_index = 0; trixel_index < tot_num_trixels; trixel_index++) {
-        color_for_trixels.rad[trixel_index].r = .1;
-        color_for_trixels.rad[trixel_index].g = .4;
-        color_for_trixels.rad[trixel_index].b = .8;
+    for (T_uint trixel_index = 0; trixel_index < tot_num_trixels; trixel_index++) {
+        color_for_trixels.rad[trixel_index].r = (T_fp).1;
+        color_for_trixels.rad[trixel_index].g = (T_fp).4;
+        color_for_trixels.rad[trixel_index].b = (T_fp).8;
     }
     //**TODO** make a timing macro
     LARGE_INTEGER read_scene_end_time;
     QueryPerformanceCounter(&read_scene_end_time);
     delta_time = (float)(read_scene_end_time.QuadPart - read_scene_begin_time.QuadPart) / performance_frequency;
     printf("Time to Read Tree: %f seconds\n", delta_time);
-    printf("\t\t primitives: %lld\n\n", tot_num_trixels);
+    printf("\t\t primitives: %d\n\n", tot_num_trixels);
 
 
-    printf("Begining Spatial Heiarchy build\n\tSorting voxels....", delta_time);
+    printf("Begining Spatial Heiarchy build\n\tSorting voxels....");
     LARGE_INTEGER sort_primitives_start_time;
     QueryPerformanceCounter(&sort_primitives_start_time);
 
@@ -174,18 +174,23 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
     #define TICK_RATE 30
     float cur_tick = 0;
     float cam_speed = .05f;
-    Quaternion::quaternion_vec* q_vec = (Quaternion::quaternion_vec*)malloc(sizeof(Quaternion::quaternion_vec) * 2);
+   /// Quaternion::quaternion_vec* q_vec = (Quaternion::quaternion_vec*)malloc(sizeof(Quaternion::quaternion_vec) );
     // float 4 { ypos, yneg, xpos, xneg
-    { T_fp temp[4] = { 0.0f, 0.0f, 0.01f, 0.01f };  q_vec->i = temp; }
-    { T_fp temp[4] = { 0.10f, -0.1f, 0.0f, 0.0f };  q_vec->j = temp; }
-    { T_fp temp[4] = { 0.000f, 0.0f, 0.0f, 0.0f };  q_vec->k = temp; }
-    { T_fp temp[4] = { 1.00f, 1.0f, 1.00f, 1.0f };  q_vec->w = temp; }
-
+    VEC4_CUDA<T_fp>* q_vec = new VEC4_CUDA<T_fp>(4);
     
+    for (int iii = 0; iii < 4; iii++) {
+        q_vec->complex.i[iii] = 0.0;
+        q_vec->complex.j[iii] = 0.09950371902099893;
+        q_vec->complex.k[iii] = 0.0;
+        q_vec->w[iii] = 0.9950371902099893;
+    }
 
-    Quaternion a = Quaternion(2, 3);
-    a._memset(*q_vec);
-    a.set_rot_matrix(3);
+    Quaternion a = Quaternion(4, 0);
+    a._memset(q_vec);
+    a.set_rot_matrix(NULL);
+    //Quaternion a = Quaternion(4, 1);
+    //cudaMemcpy(a.rot_m, t_a.rot_m, sizeof(T_fp) * 4 * 9, cudaMemcpyHostToDevice);
+    g_input->translate->w = cam_speed;
 
     while (*g_running) {
         if (cur_tick >= 1 / (TICK_RATE * delta_time)) {
@@ -193,39 +198,48 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
                 g_input->buttons[i].changed = false;
             }
             int msg_cnt = peek_message_wrapper(&window, &g_input);
+
             if (is_button_release(BUTTON_ESCAPE)) {
                 window_callback(window, WM_DESTROY, 0, 0); continue;
                 fclose(dummyFile);
                 FreeConsole();
             }
-            if (is_click_hold(BUTTON_W)) {
-                g_input->translate.dx = main_cam->o_prop.n.x * cam_speed;
-                g_input->translate.dy = main_cam->o_prop.n.y * cam_speed;
-                g_input->translate.dz = main_cam->o_prop.n.z * cam_speed;
-                main_cam->transform(g_input->translate, NULL, TRANSLATE_XYZ);
-            }
-            if (is_click_hold(BUTTON_S)) {
-                g_input->translate.dx = -main_cam->o_prop.n.x * cam_speed;
-                g_input->translate.dy = -main_cam->o_prop.n.y * cam_speed;
-                g_input->translate.dz = -main_cam->o_prop.n.z * cam_speed;
-                main_cam->transform(g_input->translate, NULL, TRANSLATE_XYZ);
-            }
-            if (is_click_hold(BUTTON_Q)) { // STRAFE LEFT
-                g_input->translate.dx = -main_cam->o_prop.u.x * cam_speed;
-                g_input->translate.dy = -main_cam->o_prop.u.y * cam_speed;
-                g_input->translate.dz = -main_cam->o_prop.u.z * cam_speed;
-                main_cam->transform(g_input->translate, NULL, TRANSLATE_XYZ);
-            }
-            if (is_click_hold(BUTTON_E)) {// STRAFE RIGHT
-                g_input->translate.dx = main_cam->o_prop.u.x * cam_speed;
-                g_input->translate.dy = main_cam->o_prop.u.y * cam_speed;
-                g_input->translate.dz = main_cam->o_prop.u.z * cam_speed;
-                main_cam->transform(g_input->translate, NULL, TRANSLATE_XYZ);
-            }
             if (is_click_hold(BUTTON_R)) {
+                g_input->translate->dx = (T_fp)0.0;
+                g_input->translate->dy = (T_fp)0.0;
+                g_input->translate->dz = (T_fp)0.0;
                 main_cam->transform(g_input->translate, &a, ROTATE_TRI_PY);
             }
+            if (is_click_hold(BUTTON_W)) {
+                g_input->translate->dx = main_cam->o_prop.n.x;
+                g_input->translate->dy = main_cam->o_prop.n.y;
+                g_input->translate->dz = main_cam->o_prop.n.z;
+
+                main_cam->transform(g_input->translate, &a, TRANSLATE_XYZ);
+            }
+            if (is_click_hold(BUTTON_S)) {
+                g_input->translate->dx = -main_cam->o_prop.n.x ;
+                g_input->translate->dy = -main_cam->o_prop.n.y ;
+                g_input->translate->dz = -main_cam->o_prop.n.z ;
+
+                main_cam->transform(g_input->translate, &a, TRANSLATE_XYZ);
+            }
+            if (is_click_hold(BUTTON_Q)) { // STRAFE LEFT
+                g_input->translate->dx = -main_cam->o_prop.u.x ;
+                g_input->translate->dy = -main_cam->o_prop.u.y ;
+                g_input->translate->dz = -main_cam->o_prop.u.z;
+                main_cam->transform(g_input->translate, &a, TRANSLATE_XYZ);
+            }
+            if (is_click_hold(BUTTON_E)) {// STRAFE RIGHT
+                g_input->translate->dx = main_cam->o_prop.u.x ;
+                g_input->translate->dy = main_cam->o_prop.u.y;
+                g_input->translate->dz = main_cam->o_prop.u.z ;
+                main_cam->transform(g_input->translate, &a, TRANSLATE_XYZ);            }
+
             if (is_click_hold(BUTTON_T)) {
+                g_input->translate->dx = (T_fp)0.0;
+                g_input->translate->dy = (T_fp)0.0;
+                g_input->translate->dz = (T_fp)0.0;
                 main_cam->transform(g_input->translate, &a, ROTATE_TRI_NY);
             }
             cur_tick = 0;
@@ -237,6 +251,7 @@ int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int n
         QueryPerformanceCounter(&frame_end_time);
         delta_time = (float)(frame_end_time.QuadPart - frame_begin_time.QuadPart) / performance_frequency;
         frame_begin_time = frame_end_time;
+        
         wprintf(L"\x1b[s");
         printf("Last Cuda Error: %s\n", cudaGetErrorString(cudaPeekAtLastError()));
         printf("FPS: %f \n", 1 / delta_time);

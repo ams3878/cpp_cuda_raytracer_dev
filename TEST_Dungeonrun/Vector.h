@@ -1,33 +1,21 @@
 #pragma once
 #ifndef VECTOR_H
   #define VECTOR_H
-  #include "platform_common.h"
-#define HOST_EPSILON_SINGLE 1e-35
+#include "typedefs.h"
+#include <typeinfo>
+
 #define VECTOR_NO_TAG 0
 #define VECTOR_X_TAG 1
 #define VECTOR_Y_TAG 2
 #define VECTOR_Z_TAG 3
-#include <typeinfo>
 //PPP_TAG pre proccesor precison tag. 0 for float 1 for double
-#define PPP_TAG 0
-
-
-#if PPP_TAG == 0
-#define T_fp float
-#define T_uint u32
-#define precision_shift 31
-#elif PPP_TAG == 1
-#define T_fp double
-#define T_uint u64
-#define precision_shift 63
-#endif
 
   template <typename T>  T* normalize_Vector(T vx, T vy, T vz);
 #define _normalize_Vector(v) normalize_Vector<T_fp>(v[0],v[1],v[2]);
   template <typename T> T dot_Vector(T* vec_a, T* vec_b);
   template <typename T> int cross_Vector(T* vec_a, T* vec_b);
   template <typename T> T vector_normsq(T* vec);
-  int vector_log2(u64 val);
+  int vector_log2(T_uint val);
 
   const int tab64[64] = {//log2 64 bit index list
 63,  0, 58,  1, 59, 47, 53,  2,
@@ -41,18 +29,37 @@
 
   template <typename T>
   struct VEC3_CUDA {
-      union { T* x; T* r; T* i; }; union { T* y; T* g; T* j; }; union { T* z; T* b; T* k; };
-  VEC3_CUDA() :x(), y(), z() {};
-  VEC3_CUDA(s64 s) { 
-      x = (T*)malloc(sizeof(T) * s); 
-      y = (T*)malloc(sizeof(T) * s);
-      z = (T*)malloc(sizeof(T) * s);  } 
-  };
+      union { T* x; T* r; T* i; T* dx; }; union { T* y; T* g; T* j; T* dy; }; union { T* z; T* b; T* k; T* dz; };
+      VEC3_CUDA() :x(NULL), y(NULL), z(NULL) {};
+      VEC3_CUDA(s64 s) { 
+          x = (T*)malloc(sizeof(T) * s); 
+          y = (T*)malloc(sizeof(T) * s);
+          z = (T*)malloc(sizeof(T) * s);
+      };
+      template <typename h_T>
+      void rotate(h_T* rotation_matrix, T_uint m_index, T_uint r_index, int reverse); //-1 to reverse 1 to not everything else underfined
 
+  };
+  template <typename T>
+  struct VEC4_CUDA : VEC3_CUDA<T>{
+      union { T* w; T* t; T* dt; T* d; };
+      VEC3_CUDA complex;
+      VEC4_CUDA() : VEC3_CUDA<T>(), w(NULL), complex() {
+          complex.x = x;
+          complex.y = y;
+          complex.z = z;
+      };
+      VEC4_CUDA(s64 s) : VEC3_CUDA<T>(s) {
+          w = (T*)malloc(sizeof(T) * s);
+          complex.x = x;
+          complex.y = y;
+          complex.z = z;
+      };
+  };
   template <typename T>
   struct VEC3 {
-      union { T x; T r; T i; }; union { T y; T g; T j; }; union { T z; T b; T k; };
-      VEC3() : x(), y(), z() {};
+      union { T x; T r; T i; T dx; }; union { T y; T g; T j; T dy; }; union { T z; T b; T k; T dz; };
+      VEC3() : x((T)0.0), y((T)0.0), z((T)0.0) {};
       VEC3(T _x, T _y, T _z) { x = _x; y = _y; z = _z; };
       template <typename T2>
       void rotate(T2 qx, T2 qy, T2 qz) {
@@ -61,6 +68,18 @@
           y = temp_x * qy.i + temp_y * qy.j + temp_z * qy.k;
           z = temp_x * qz.i + temp_y * qz.j + temp_z * qz.k;
       };
+      template <typename h_T>
+      void rotate(h_T* rotation_matrix, T_uint index);
+  };
+  template <typename T>
+  struct VEC4 : VEC3<T> {
+      union { T w; T t; T dt; T d; };
+      VEC4() : VEC3<T>(), w((T)0.0) {};
+      VEC4(T _x, T _y, T _z, T _w) : VEC3<T>(_x,_y,_z) { w = _w; };
+      //__device__ VEC4<T> d_VEC4() { ; };
+     // __device__ VEC4<T> d_VEC4(T _x, T _y, T _z, T _w) { ; };
+      template <typename h_T>
+      void rotate(h_T qx, h_T qy, h_T qz, T_uint index) ;
   };
 
   template <typename T>

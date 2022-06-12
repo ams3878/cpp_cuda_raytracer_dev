@@ -65,6 +65,9 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <PreprocessorDefinitions>WIN32;WIN64;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <OmitFramePointers>true</OmitFramePointers>
+      <WholeProgramOptimization>false</WholeProgramOptimization>
     </ClCompile>
     <Link>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -86,6 +89,10 @@
   <ItemGroup>
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Color.cpp" />
+    <ClCompile Include="old_reference_functions.c">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="Quaternion.cpp" />
     <ClCompile Include="read_ply.cpp" />
     <ClCompile Include="vector.cpp" />
@@ -100,6 +107,7 @@
     <ClInclude Include="framework.h" />
     <ClInclude Include="Quaternion.h" />
     <ClInclude Include="sort.h" />
+    <ClInclude Include="typedefs.h" />
     <ClInclude Include="vector.cuh" />
     <ClInclude Include="platform_common.h" />
     <ClInclude Include="Trixel.h" />

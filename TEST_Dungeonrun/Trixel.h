@@ -58,7 +58,8 @@ public:
 		}d_edges;
 		Color d_color;
 		VEC3_CUDA<T_fp> d_n;
-		void** rotate_helper_array;
+
+		VEC3_CUDA<T_fp>** rotate_helper_array;
 		trixel_memory() : d_color(), d_n(), d_edges(), h_p1(), d_p1(), rotate_helper_array(NULL) {}
 	}h_mem;void* d_mem;
 	struct kd_tree {
@@ -101,7 +102,7 @@ public:
 		cudaMalloc((void**)&h_mem.d_n.y, sizeof(T_fp) * num_trixels);
 		cudaMalloc((void**)&h_mem.d_n.z, sizeof(T_fp) * num_trixels);
 
-		cudaMalloc((void**)&h_mem.rotate_helper_array, sizeof(void*) * 4);
+		cudaMalloc((void**)&h_mem.rotate_helper_array, sizeof(VEC3_CUDA<T_fp>*) * 3);
 		cudaMalloc((void**)&h_mem.d_color.c, sizeof(u32) * num_trixels);
 		cudaMalloc((void**)&h_mem.d_color.rad, sizeof(Color::radiance) * num_trixels);
 
@@ -380,7 +381,7 @@ public:
 		free(temp_lists_list);
 		return 0;
 	}
-	int set_sorted_voxels(kd_leaf_sort* voxel_list, u64 num_leaf_voxels) {
+	int set_sorted_voxels(kd_leaf_sort* voxel_list, T_uint num_leaf_voxels) {
 
 		indexed_leafs = (kd_leaf_sort*)malloc(sizeof(kd_leaf_sort) * num_leaf_voxels);
 		cudaMemcpy(indexed_leafs, voxel_list, sizeof(kd_leaf_sort) * num_leaf_voxels, cudaMemcpyHostToHost);
@@ -409,7 +410,7 @@ public:
 		cudaMemcpy(sorted_z1_leafs, voxel_list, sizeof(kd_leaf_sort) * num_leaf_voxels, cudaMemcpyHostToHost);
 		merge_sort(sorted_z1_leafs, w_list, num_leaf_voxels, SORT_Z1_TAG);
 
-		for (int i = 0; i < num_leaf_voxels; i++) {
+		for (T_uint i = 0; i < num_leaf_voxels; i++) {
 			indexed_leafs[sorted_x0_leafs[i].tri_list_index].sorted_x0_index = i;
 			indexed_leafs[sorted_y0_leafs[i].tri_list_index].sorted_y0_index = i;
 			indexed_leafs[sorted_z0_leafs[i].tri_list_index].sorted_z0_index = i;
@@ -418,7 +419,7 @@ public:
 			indexed_leafs[sorted_z1_leafs[i].tri_list_index].sorted_z1_index = i;
 		}
 		kd_leaf_sort* f_list;
-		for (int list_select = 0; list_select <= 5; list_select++) {
+		for (T_uint list_select = 0; list_select <= 5; list_select++) {
 			switch (list_select) {
 			case 0:
 				f_list = sorted_x1_leafs;
@@ -439,7 +440,7 @@ public:
 				f_list = sorted_z0_leafs;
 				break;
 			}		
-			for (int i = 0; i < num_leaf_voxels; i++) {
+			for (T_uint i = 0; i < num_leaf_voxels; i++) {
 				//SET X0 LEAF position for all other lists
 				f_list[i].sorted_x1_index = list_select == 0 ? i : indexed_leafs[f_list[i].tri_list_index].sorted_x1_index;
 				f_list[i].sorted_y1_index = list_select == 1 ? i : indexed_leafs[f_list[i].tri_list_index].sorted_y1_index;

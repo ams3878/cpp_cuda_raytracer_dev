@@ -17,7 +17,7 @@ if (cudaStatus != cudaSuccess) {printf("%s launch failed: %s\n", #a, cudaGetErro
 cudaStatus = cudaDeviceSynchronize();\
 if (cudaStatus != cudaSuccess) {printf("cudaDeviceSynchronize returned error code %d after launching %s!\n",cudaStatus, #a);};
 template <typename T>
- struct __device__ d_VEC3 {
+ struct d_VEC3 {
 	union { T x; T r; T i; }; union { T y; T g; T j; }; union { T z; T b; T k; };
 	__device__ d_VEC3() : x(), y(), z() {};
 	__device__ d_VEC3(T _x, T _y, T _z) { x = _x; y = _y; z = _z; };
@@ -29,6 +29,45 @@ template <typename T>
 		z = temp_x * qz.i + temp_y * qz.j + temp_z * qz.k;
 	};
 };
+ template<typename T>
+ template <typename h_T>
+ __device__ void VEC3_CUDA<T>::rotate(h_T* rm, T_uint m_index, T_uint r_index, int reverse) { 
+	 T temp_x = reverse * x[m_index], temp_y = reverse * y[m_index], temp_z = reverse * z[m_index];
+	 x[m_index] = temp_x * rm->x->i[r_index] + temp_y * rm->x->j[r_index] + temp_z * rm->x->k[r_index];
+	 y[m_index] = temp_x * rm->y->i[r_index] + temp_y * rm->y->j[r_index] + temp_z * rm->y->k[r_index];
+	 z[m_index] = temp_x * rm->z->i[r_index] + temp_y * rm->z->j[r_index] + temp_z * rm->z->k[r_index];
+	 x[m_index] *= reverse;
+	 y[m_index] *= reverse;
+	 z[m_index] *= reverse;
+ };
+
+ template<typename T>
+ template <typename h_T>
+ __device__ void VEC3<T>::rotate(h_T* rm ,T_uint index) {
+	 T temp_x = x, temp_y = y, temp_z = z;
+	 x = temp_x * rm->x->i[index] + temp_y * rm->x->j[index] + temp_z * rm->x->k[index];
+	 y = temp_x * rm->y->i[index] + temp_y * rm->y->j[index] + temp_z * rm->y->k[index];
+	 z = temp_x * rm->z->i[index] + temp_y * rm->z->j[index] + temp_z * rm->z->k[index];
+ };
+ template<typename T>
+ template <typename h_T>
+ __device__ void VEC4<T>::rotate(h_T qx, h_T qy, h_T qz, T_uint index) {
+	 T temp_x = x, temp_y = y, temp_z = z;
+	 x = temp_x * qx->i[index] + temp_y * qx->j[index] + temp_z * qx->k[index];
+	 y = temp_x * qy->i[index] + temp_y * qy->j[index] + temp_z * qy->k[index];
+	 z = temp_x * qz->i[index] + temp_y * qz->j[index] + temp_z * qz->k[index];
+ };
+
+ template <typename T>
+ __device__ void quaternion_mul(VEC4_CUDA<T>* a, VEC4_CUDA<T>* b, T_uint i) {
+	 T t_i = a->i[i];	 T t_j = a->j[i];	 T t_k = a->k[i];	 T t_w = a->w[i];
+
+	 a->i[i] = t_j * b->z[i] - t_k * b->y[i] + t_i * b->w[i] + t_w * b->x[i];
+	 a->j[i] = t_k * b->x[i] - t_i * b->z[i] + t_j * b->w[i] + t_w * b->y[i];
+	 a->k[i] = t_i * b->y[i] - t_j * b->x[i] + t_k * b->w[i] + t_w * b->z[i];
+	 a->w[i] = t_w * b->w[i] - t_i * b->x[i] - t_j * b->y[i] - t_k * b->z[i];
+ }
+
 
 template <typename T>
 static __device__ void device_cross(T* cx, T* cy, T* cz, T ax, T ay, T az, T bx, T by, T bz) {

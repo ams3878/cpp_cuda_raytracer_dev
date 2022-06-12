@@ -2,20 +2,15 @@
 #ifndef PLATFORM_COMMON_H
 #define PLATFORM_COMMON_H
 #include  <windows.h>
+#include "Vector.h"
+#include "typedefs.h"
 #ifndef GLOBALINPUT
 #define GLOBALINPUT g_input
 #endif
 #ifndef EPSILON
 #define EPSILON 0.0001f
 #endif
-typedef char s8;
-typedef unsigned char u8;
-typedef short s16;
-typedef unsigned short u16;
-typedef int s32;
-typedef unsigned int u32;
-typedef long long s64;
-typedef unsigned long long u64;
+
 
 //CUDA TRANSFORM DEFINES
 constexpr auto TRANSLATE_XYZ = 30;
@@ -68,9 +63,10 @@ enum {
     Button buttons[BUTTON_COUNT];
     //Render_State* selected_hud_obj;
     //Render_Object_Container* selected_world_obj;
-    struct translate_vector { double dx; double dy; double dz; }translate;
+    VEC4<T_fp> *translate;
     int selected_triangle = -1;
-    Input() { translate.dx = 0;  translate.dy = 0;  translate.dz = 0;
+    Input() {
+        translate = new VEC4<T_fp>();
     }
 
   };
