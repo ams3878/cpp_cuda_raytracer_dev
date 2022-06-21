@@ -8,7 +8,8 @@ Functionality / Algorithms:
     - nlogn build 
     - root(n) avg voxel checks per ray
     
- - BRDF : Not implemented
+ - BRDF : The most basic phong you could imagine
+ - Animation : Rotation or Translation or Translation Then Rotation. but not rotation first(who knows...)
 
 Metrics
   - Standfor Dragon (800k) ~ 150 FPS
