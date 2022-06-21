@@ -1,5 +1,6 @@
 #pragma once
-#include "platform_common.h"
+#include "typedefs.h"
+
 class Voxel
 {
 	struct voxel_memory {

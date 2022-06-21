@@ -35,6 +35,9 @@
           x = (T*)malloc(sizeof(T) * s); 
           y = (T*)malloc(sizeof(T) * s);
           z = (T*)malloc(sizeof(T) * s);
+          x[0] = (T)0.0;           
+          y[0] = (T)0.0;
+          z[0] = (T)0.0;
       };
       template <typename h_T>
       void rotate(h_T* rotation_matrix, T_uint m_index, T_uint r_index, int reverse); //-1 to reverse 1 to not everything else underfined
@@ -51,16 +54,19 @@
       };
       VEC4_CUDA(s64 s) : VEC3_CUDA<T>(s) {
           w = (T*)malloc(sizeof(T) * s);
+          w[0] = (T)1.0;
           complex.x = x;
           complex.y = y;
           complex.z = z;
       };
+
   };
   template <typename T>
   struct VEC3 {
       union { T x; T r; T i; T dx; }; union { T y; T g; T j; T dy; }; union { T z; T b; T k; T dz; };
       VEC3() : x((T)0.0), y((T)0.0), z((T)0.0) {};
       VEC3(T _x, T _y, T _z) { x = _x; y = _y; z = _z; };
+      VEC3(T* v) { x = v[0]; y = v[1]; z = v[2]; };
       template <typename T2>
       void rotate(T2 qx, T2 qy, T2 qz) {
           T temp_x = x, temp_y = y, temp_z = z;
@@ -76,10 +82,38 @@
       union { T w; T t; T dt; T d; };
       VEC4() : VEC3<T>(), w((T)0.0) {};
       VEC4(T _x, T _y, T _z, T _w) : VEC3<T>(_x,_y,_z) { w = _w; };
+      VEC4(T* v) : VEC3<T>(v) { w = v[3]; };
       //__device__ VEC4<T> d_VEC4() { ; };
      // __device__ VEC4<T> d_VEC4(T _x, T _y, T _z, T _w) { ; };
       template <typename h_T>
-      void rotate(h_T qx, h_T qy, h_T qz, T_uint index) ;
+      void rotate(h_T qx, h_T qy, h_T qz, T_uint index);
+      void de_normalize() {
+          x *= w;
+          y *= w;
+          z *= w;
+          w = (T)1.0;
+      }
+      void operator-=(VEC4<T> rhs) {
+          x = (x * w) - (rhs.x * rhs.w);
+          y = (y * w) - (rhs.y * rhs.w);
+          z = (z * w) - (rhs.z * rhs.w);
+          w = (T)1.0;
+      };
+      void operator+=(VEC4<T> rhs) {
+          x = (x * w) + (rhs.x * rhs.w);
+          y = (y * w) + (rhs.y * rhs.w);
+          z = (z * w) + (rhs.z * rhs.w);
+          w = (T)1.0;
+      };
+      VEC4<T> operator-() {
+          return VEC4<T>(x, y, z, -w);
+      };
+      VEC4<T> operator-(VEC4<T> rhs) {
+          return VEC4<T>(
+              (x * w) - (rhs.x * rhs.w),
+              (y * w) - (rhs.y * rhs.w),
+              (z * w) - (rhs.z * rhs.w), (T)1.0);
+      };
   };
 
   template <typename T>
@@ -98,6 +132,15 @@
       return u.x;
   }
   template <typename T>
+  void normalize_Vector(VEC4<T>* v) {//both v and nv must already be intialized, if both same in place normalize
+      T s = v->x * v->x + v->y * v->y + v->z * v->z;//this cant be negative     
+      s = vector_norm(s);
+      v->x *= s;
+      v->y *= s;
+      v->z *= s;
+      v->w = 1/s;
+  }
+  template <typename T>
   T* normalize_Vector(T vx, T vy, T vz, T v4) {//both v and nv must already be intialized, if both same in place normalize
       T s = vx * vx + vy * vy + vz * vz + v4 * v4;//this cant be negative     
       s = vector_norm(s);
@@ -112,10 +155,11 @@
   T* normalize_Vector(T vx, T vy, T vz) {//both v and nv must already be intialized, if both same in place normalize
       T s = vx * vx + vy * vy + vz * vz ;//this cant be negative     
       s = vector_norm(s);
-      T* temp = (T*)malloc(sizeof(T) * 3);
+      T* temp = (T*)malloc(sizeof(T) * 4);
       temp[0] = vx * s;
       temp[1] = vy * s;
       temp[2] = vz * s;
+      temp[3] = 1/s;
       return temp;
   }
 

@@ -6,15 +6,8 @@
 #include "cuda_profiler_api.h"
 #include <stdio.h>
 #endif
-#include "platform_common.h"
-#include "Camera.h"
-
-#include "Trixel.h"
-#include "Quaternion.h"
-#ifndef CUDA_VECTOR_H
-#include "vector.cuh" 
-#endif
-
+#include "framework.h"
+#include "framework.cuh"
 
 
 __global__ void color_cam_cuda(Camera::pixel_memory* cm, u32* t, u64 max_threads) {
@@ -135,17 +128,17 @@ cudaError_t init_camera_device_memory(Camera* c){
     cudaMemcpy(c->h_mem.h_color.c, c->h_mem.d_color.c, c->f_prop.res.count * sizeof(u32), cudaMemcpyDeviceToHost);
     return cudaStatus;
 }
-__global__ void init_cam_voxel_mem_cuda(Camera::voxel_memory* vm, Trixel::kd_tree* kdm, VEC3_CUDA<VEC3_CUDA<T_fp>>* _rotM, VEC4_CUDA<T_fp>* _vec, VEC3<T_fp> co, u64 max_threads) {
+__global__ void init_cam_voxel_mem_cuda(Camera::voxel_memory* vm, Trixel::kd_tree* kdm, VEC4_CUDA<VEC4_CUDA<T_fp>>* _rotM, VEC4_CUDA<T_fp>* _vec, VEC3<T_fp> co, u64 max_threads) {
 
     u64 i = (u64)threadIdx.x + ((u64)blockIdx.x * blockDim.x);
     if (i >= max_threads) { return; }
     int cut_dir = kdm->d_nodes[i].cut_flag;
-    vm->d_Bo[i].t0x = kdm->d_nodes[i].h_bound.x0 - co.x;
-    vm->d_Bo[i].t1x = kdm->d_nodes[i].h_bound.x1 - co.x;
-    vm->d_Bo[i].t0y = kdm->d_nodes[i].h_bound.y0 - co.y;
-    vm->d_Bo[i].t1y = kdm->d_nodes[i].h_bound.y1 - co.y;
-    vm->d_Bo[i].t0z = kdm->d_nodes[i].h_bound.z0 - co.z;
-    vm->d_Bo[i].t1z = kdm->d_nodes[i].h_bound.z1 - co.z;
+    vm->d_Bo[i].t0x = kdm->d_nodes[i].h_bound.x0 - co.x + vm->obj_center.x;
+    vm->d_Bo[i].t1x = kdm->d_nodes[i].h_bound.x1 - co.x + vm->obj_center.x;
+    vm->d_Bo[i].t0y = kdm->d_nodes[i].h_bound.y0 - co.y + vm->obj_center.y;
+    vm->d_Bo[i].t1y = kdm->d_nodes[i].h_bound.y1 - co.y + vm->obj_center.y;
+    vm->d_Bo[i].t0z = kdm->d_nodes[i].h_bound.z0 - co.z + vm->obj_center.z;
+    vm->d_Bo[i].t1z = kdm->d_nodes[i].h_bound.z1 - co.z + vm->obj_center.z;
     vm->is_leaf[i] = kdm->d_nodes[i].is_leaf;
     vm->children[i].left = kdm->d_nodes[i].left_node;
     vm->children[i].right= kdm->d_nodes[i].right_node;
@@ -160,8 +153,8 @@ __global__ void init_cam_voxel_mem_cuda(Camera::voxel_memory* vm, Trixel::kd_tre
     vm->d_q->d_rot_m = _rotM;
     vm->d_q->d_vec = _vec;
 
-    vm->s1[i] = kdm->d_nodes[i].s1 - ((co.x * (T_fp)vm->cut_flags[i].x) + (co.y * (T_fp)vm->cut_flags[i].y) + (co.z * (T_fp)vm->cut_flags[i].z));
-    vm->s2[i] = kdm->d_nodes[i].s2 - ((co.x * (T_fp)vm->cut_flags[i].x) + (co.y * (T_fp)vm->cut_flags[i].y) + (co.z * (T_fp)vm->cut_flags[i].z));
+    vm->s1[i] = kdm->d_nodes[i].s1 - (((co.x + vm->obj_center.x) * (T_fp)vm->cut_flags[i].x) + ((co.y + vm->obj_center.y) * (T_fp)vm->cut_flags[i].y) + ((co.z + vm->obj_center.z) * (T_fp)vm->cut_flags[i].z));
+    vm->s2[i] = kdm->d_nodes[i].s2 - (((co.x + vm->obj_center.x) * (T_fp)vm->cut_flags[i].x) + ((co.y + vm->obj_center.y) * (T_fp)vm->cut_flags[i].y) + ((co.z + vm->obj_center.x) * (T_fp)vm->cut_flags[i].z));
 
 }
 cudaError_t init_camera_voxel_device_memory(Trixel* t, Camera* c) {
@@ -189,52 +182,62 @@ cudaError_t init_camera_voxel_device_memory(Trixel* t, Camera* c) {
     }
     return cudaStatus;
 }
+__global__ void update_voxel_transform_m_translate_cuda(Camera::voxel_memory* dvm, u64 max_threads) {
+    u64 voxel_index = (u64)threadIdx.x + ((u64)blockIdx.x * blockDim.x);
+    if (voxel_index >= max_threads) { return; }
+    VEC4_CUDA<VEC4_CUDA<T_fp>>* cur_rot = dvm->d_q->d_rot_m;
 
+    cur_rot->x->w[voxel_index] += dvm->cur_transform.x * dvm->cur_transform.d;
+    cur_rot->y->w[voxel_index] += dvm->cur_transform.y * dvm->cur_transform.d;
+    cur_rot->z->w[voxel_index] += dvm->cur_transform.z * dvm->cur_transform.d;
 
-__global__ void rotate_cam_voxel_mem_cuda(Camera::voxel_memory* dvm, Trixel::trixel_memory* tm, Camera::trixel_memory* cm, VEC4_CUDA<T_fp>* new_vec, u64 max_threads) {
+}
+
+__global__ void rotate_cam_voxel_mem_cuda(Camera::voxel_memory* dvm, VEC4_CUDA<T_fp>* new_vec, u64 max_threads) {
     u64 voxel_index = (u64)threadIdx.x + ((u64)blockIdx.x * blockDim.x);
     if (voxel_index >= max_threads) { return; }
     VEC4_CUDA<T_fp>* cur_vec = dvm->d_q->d_vec;
-    VEC3_CUDA<VEC3_CUDA<T_fp>>* cur_rot = dvm->d_q->d_rot_m;
-    quaternion_mul(cur_vec, new_vec, voxel_index);
+    VEC4_CUDA<VEC4_CUDA<T_fp>>* cur_rot = dvm->d_q->d_rot_m;
+    printf("\tbefore: %f %f %f", dvm->cur_transform.x, dvm->cur_transform.y, dvm->cur_transform.z);
+
+    if (new_vec) { quaternion_mul(cur_vec, new_vec, voxel_index); }
 
     cur_rot->x->i[voxel_index] = (1 - 2 * cur_vec->j[voxel_index] * cur_vec->j[voxel_index] - 2 * cur_vec->k[voxel_index] * cur_vec->k[voxel_index]);
     cur_rot->x->j[voxel_index] = (2 * cur_vec->i[voxel_index] * cur_vec->j[voxel_index] - 2 * cur_vec->k[voxel_index] * cur_vec->w[voxel_index]);
     cur_rot->x->k[voxel_index] = (2 * cur_vec->i[voxel_index] * cur_vec->k[voxel_index] + 2 * cur_vec->j[voxel_index] * cur_vec->w[voxel_index]);
+
     cur_rot->y->i[voxel_index] = (2 * cur_vec->i[voxel_index] * cur_vec->j[voxel_index] + 2 * cur_vec->k[voxel_index] * cur_vec->w[voxel_index]);
     cur_rot->y->j[voxel_index] = (1 - 2 * cur_vec->i[voxel_index] * cur_vec->i[voxel_index] - 2 * cur_vec->k[voxel_index] * cur_vec->k[voxel_index]);
     cur_rot->y->k[voxel_index] = (2 * cur_vec->j[voxel_index] * cur_vec->k[voxel_index] - 2 * cur_vec->i[voxel_index] * cur_vec->w[voxel_index]);
+
     cur_rot->z->i[voxel_index] = (2 * cur_vec->i[voxel_index] * cur_vec->k[voxel_index] - 2 * cur_vec->j[voxel_index] * cur_vec->w[voxel_index]);
     cur_rot->z->j[voxel_index] = (2 * cur_vec->j[voxel_index] * cur_vec->k[voxel_index] + 2 * cur_vec->i[voxel_index] * cur_vec->w[voxel_index]);
     cur_rot->z->k[voxel_index] = (1 - 2 * cur_vec->i[voxel_index] * cur_vec->i[voxel_index] - 2 * cur_vec->j[voxel_index] * cur_vec->j[voxel_index]);
-    
 
-    dvm->cur_face = dvm->init_face;
-    (dvm->cur_face).rotate(cur_rot->x, cur_rot->y, cur_rot->z, voxel_index);
-    
-
+    (dvm->cur_transform).rotate(cur_rot->x, cur_rot->y, cur_rot->z, voxel_index);
+    printf("\tafter: %f %f %f \n", dvm->cur_transform.x, dvm->cur_transform.y, dvm->cur_transform.z);
 }
 
-__global__ void translate_trixels_device_cuda(Trixel::trixel_memory* tm, Camera::trixel_memory* cm, VEC3<T_fp> a, u64 max_threads) {
+__global__ void update_trixels_device_cuda(Trixel::trixel_memory* tm, Camera::trixel_memory* cm, u64 max_threads) {
     u64 i = (u64)threadIdx.x + ((u64)blockIdx.x * blockDim.x);
     if (i >= max_threads) { return; }
-   // tm->d_p1[i].x += a.dx; tm->d_p1[i].y += a.dy;	tm->d_p1[i].z += a.dz;
-    cm->d_t.x[i] += a.dx; cm->d_t.y[i] += a.dy;	cm->d_t.z[i] += a.dz;
-    //Still pretty sure its move calculations to unroll and try to just =+ the detla.,...but maybe precomute e1 * e2 woudl speed it up? would have to unroll and look
     device_cross(&cm->d_q.x[i], &cm->d_q.y[i], &cm->d_q.z[i], cm->d_t.x[i], cm->d_t.y[i], cm->d_t.z[i], tm->d_edges.e1.x[i], tm->d_edges.e1.y[i], tm->d_edges.e1.z[i]);
     cm->d_w[i] = device_dot(cm->d_q.x[i], cm->d_q.y[i], cm->d_q.z[i], tm->d_edges.e2.x[i], tm->d_edges.e2.y[i], tm->d_edges.e2.z[i]);
 }
 
 //Translate in the direction the object is "facing" by the amount (d) VEC4 (x,y,z,d)
 __global__ void translate_cam_voxel_mem_cuda(Camera::voxel_memory* vm, Camera::trixel_memory* cm, bool reverse,u64 max_threads) {
-
     u64 i = (u64)threadIdx.x + ((u64)blockIdx.x * blockDim.x);
     if (i >= max_threads) { return; }
+
     //THESE VALUES ARE ALL CALCULATED AS SOME POINT IN SPACE minus THE CAMERA ORIGIN
     //So if you move the camera by  + dx...need to subtract dx from the voxel
-    T_fp _dx = (vm->cur_face.d * vm->cur_face.x) + vm->obj_center.x;
-    T_fp _dy = (vm->cur_face.d * vm->cur_face.y) + vm->obj_center.y;
-    T_fp _dz = (vm->cur_face.d * vm->cur_face.z) + vm->obj_center.z;
+    T_fp _dx = (vm->cur_transform.d * vm->cur_transform.x);
+    T_fp _dy = (vm->cur_transform.d * vm->cur_transform.y);
+    T_fp _dz = (vm->cur_transform.d * vm->cur_transform.z);
+
+    if (i == 0) { printf("Translate: %f %f %f\n", _dx, _dy, _dz); }
+
     _dx = reverse ? -_dx : _dx;
     _dy = reverse ? -_dy : _dy;
     _dz = reverse ? -_dz : _dz;
@@ -249,33 +252,42 @@ __global__ void translate_cam_voxel_mem_cuda(Camera::voxel_memory* vm, Camera::t
         T_uint tri_i = vm->children[i].triangle;
         cm->d_t.x[tri_i] -= _dx; cm->d_t.y[tri_i] -= _dy;	cm->d_t.z[tri_i] -= _dz;
     }
-
-
-}
-cudaError_t transform_trixels_device(Trixel* t, Camera* c, VEC3<T_fp> transform_vector, Quaternion* q, int offset, u8 transform_flag) {
-
-    cudaError_t cudaStatus;
-    switch (transform_flag) {
-    case TRANSLATE_XYZ:
-        translate_trixels_device_cuda << < 1 + (u32)(t->num_trixels / BLOCK_SIZE), BLOCK_SIZE >> > (
-            (Trixel::trixel_memory*)t->d_mem, c->d_trixels, transform_vector, t->num_trixels);
-       break;    
-    case ROTATE_TRI_PY:
-    case ROTATE_TRI_NY:
-        //rotate_trixels_device_cuda << < 1 + (u32)(t->num_trixels / BLOCK_SIZE), BLOCK_SIZE >> > (
-          //  (Trixel::trixel_memory*)t->d_mem, c->d_trixels, c->d_voxels, offset, t->num_trixels);
-        break;
-    }
-    status_lauch_and_sync(scale_trixels_device_cuda);
-    return cudaStatus;
 }
 
-cudaError_t transform_camera_voxel_device_memory(Camera* c, Trixel* t, VEC3<T_fp> tv, Quaternion* q, int offset, u8 transform_select) {
+cudaError_t transform_camera_voxel_device_memory(Camera* c, Trixel* t, VEC4<T_fp>* tv, Quaternion* q, u8 transform_select) {
     cudaError_t cudaStatus;
     switch (transform_select) {
     case TRANSLATE_XYZ:
+    case TRANSLATE_X:
+    case TRANSLATE_Z:
+
+        cudaMemcpy(&c->h_voxels.cur_transform, tv, sizeof(VEC4<T_fp>), cudaMemcpyHostToHost);
+        cudaMemcpy(c->d_voxels, &c->h_voxels, sizeof(Camera::voxel_memory), cudaMemcpyHostToDevice);
+
+
         translate_cam_voxel_mem_cuda << < 1 + (u32)(c->h_voxels.num_voxels / BLOCK_SIZE), BLOCK_SIZE >> > (
-            c->d_voxels, c->d_trixels, false, c->h_voxels.num_voxels);
+            c->d_voxels, c->d_trixels, true, c->h_voxels.num_voxels);
+        update_trixels_device_cuda << < 1 + (u32)(t->num_trixels / BLOCK_SIZE), BLOCK_SIZE >> > (
+            (Trixel::trixel_memory*)t->d_mem, c->d_trixels, t->num_trixels);
+        rotate_cam_voxel_mem_cuda << < 1, 1 >> > (
+            c->d_voxels, NULL, 1);
+        cudaMemcpy(&c->h_voxels, c->d_voxels, sizeof(Camera::voxel_memory), cudaMemcpyDeviceToHost);
+       // update_voxel_transform_m_translate_cuda << <1, 1 >> > (//update device obj center ( translation part of transformation matrix)
+        //    c->d_voxels, 1);
+       // cudaMemcpy(&c->h_voxels, c->d_voxels, sizeof(Camera::voxel_memory), cudaMemcpyDeviceToHost);
+        printf("N : %f %f %f %f\n", c->h_voxels.init_face.x, c->h_voxels.init_face.y, c->h_voxels.init_face.z, c->h_voxels.init_face.w);
+
+        c->h_voxels.init_face += c->h_voxels.cur_transform;
+        normalize_Vector(&c->h_voxels.init_face);
+        cudaMemcpy(&c->h_voxels.cur_transform, &c->h_voxels.init_face, sizeof(VEC4<T_fp>), cudaMemcpyHostToHost);
+        cudaMemcpy(c->d_voxels, &c->h_voxels, sizeof(Camera::voxel_memory), cudaMemcpyHostToDevice);
+        rotate_cam_voxel_mem_cuda << < 1, 1 >> > (
+            c->d_voxels, NULL, 1);
+        cudaMemcpy(&c->h_voxels, c->d_voxels, sizeof(Camera::voxel_memory), cudaMemcpyDeviceToHost);
+        cudaMemcpy(&c->h_voxels.n, &c->h_voxels.cur_transform, sizeof(VEC4<T_fp>), cudaMemcpyHostToHost);
+        printf("N : %f %f %f %f\n", c->h_voxels.init_face.x, c->h_voxels.init_face.y, c->h_voxels.init_face.z, c->h_voxels.init_face.w);
+
+        printf("\n");
         break;
     case ROTATE_TRI_PY:
     case ROTATE_TRI_NY:
@@ -284,24 +296,35 @@ cudaError_t transform_camera_voxel_device_memory(Camera* c, Trixel* t, VEC3<T_fp
         cudaMemcpy(c->h_voxels.next_rotation->vec->k, q->vec->k, sizeof(T_fp), cudaMemcpyHostToDevice);
         cudaMemcpy(c->h_voxels.next_rotation->vec->w, q->vec->w, sizeof(T_fp), cudaMemcpyHostToDevice);
 
+        cudaMemcpy(&c->h_voxels.cur_transform, &-c->h_voxels.init_face, sizeof(VEC4<T_fp>), cudaMemcpyHostToHost);
+        cudaMemcpy(c->d_voxels, &c->h_voxels, sizeof(Camera::voxel_memory), cudaMemcpyHostToDevice);
+        rotate_cam_voxel_mem_cuda << < 1, 1 >> > (
+            c->d_voxels, c->h_voxels.next_rotation->d_vec, 1);
+        cudaMemcpy(&c->h_voxels, c->d_voxels, sizeof(Camera::voxel_memory), cudaMemcpyDeviceToHost);
+
+        c->h_voxels.cur_transform += c->h_voxels.n;
+
+        cudaMemcpy(c->d_voxels, &c->h_voxels, sizeof(Camera::voxel_memory), cudaMemcpyHostToDevice);
         translate_cam_voxel_mem_cuda << < 1 + (u32)(c->h_voxels.num_voxels / BLOCK_SIZE), BLOCK_SIZE >> > (
             c->d_voxels, c->d_trixels, false, c->h_voxels.num_voxels);
+        update_trixels_device_cuda << < 1 + (u32)(t->num_trixels / BLOCK_SIZE), BLOCK_SIZE >> > (
+            (Trixel::trixel_memory*)t->d_mem, c->d_trixels, t->num_trixels);
+        c->h_voxels.cur_transform -= c->h_voxels.n;
 
-        rotate_cam_voxel_mem_cuda << < 1 + (u32)(c->h_voxels.num_voxels / BLOCK_SIZE), BLOCK_SIZE >> > (
-            c->d_voxels,(Trixel::trixel_memory*)t->d_mem, c->d_trixels, c->h_voxels.next_rotation->d_vec, 1);
+        normalize_Vector(&c->h_voxels.cur_transform);
 
-        translate_cam_voxel_mem_cuda << < 1 + (u32)(c->h_voxels.num_voxels / BLOCK_SIZE), BLOCK_SIZE >> > (
-            c->d_voxels, c->d_trixels, true, c->h_voxels.num_voxels);
+        cudaMemcpy(&c->h_voxels.n, &-c->h_voxels.cur_transform, sizeof(VEC4<T_fp>), cudaMemcpyHostToHost);
+        printf("N : %f %f %f %f\n\n", c->h_voxels.n.x, c->h_voxels.n.y, c->h_voxels.n.z, c->h_voxels.n.w);
 
-        translate_trixels_device_cuda << < 1 + (u32)(t->num_trixels / BLOCK_SIZE), BLOCK_SIZE >> > (
-            (Trixel::trixel_memory*)t->d_mem, c->d_trixels, tv, t->num_trixels);
         break;
-    }   
+    }
+
+
     status_lauch_and_sync(translate_cam_voxel_mem_cuda);
     return cudaStatus;
 }
 
-__global__ void rotate_cam_mem_cuda(Camera::pixel_memory* m, VEC3_CUDA<VEC3_CUDA<T_fp>>* rot_m, int offset, u64 max_threads) {
+__global__ void rotate_cam_mem_cuda(Camera::pixel_memory* m, VEC4_CUDA<VEC4_CUDA<T_fp>>* rot_m, int offset, u64 max_threads) {
     u64 i = (u64)threadIdx.x + ((u64)blockIdx.x * blockDim.x);
     if (i >= max_threads) { return; }
     T_fp temp_x = m->rmd.x[i];	T_fp temp_y = m->rmd.y[i];	T_fp temp_z = m->rmd.z[i];

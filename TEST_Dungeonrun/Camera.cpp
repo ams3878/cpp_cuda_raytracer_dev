@@ -133,20 +133,29 @@ cudaError_t Camera::init_camera_trixel_data(Trixel* t, s64 num_trixels) {
 
 cudaError_t Camera::init_camera_voxel_data(Trixel* t, s64 num_voxels) {
 	cudaError_t cuda_err;
+	h_voxels.obj_center.w = (T_fp)1.0;
 	h_voxels.obj_center.x = (T_fp)0.0;
 	h_voxels.obj_center.y = (T_fp)0.0;
 	h_voxels.obj_center.z = (T_fp)0.0;
-	h_voxels.init_face.x = o_prop.pos.x - h_voxels.obj_center.x;
-	h_voxels.init_face.y = o_prop.pos.y - h_voxels.obj_center.y;
-	h_voxels.init_face.z = o_prop.pos.z - h_voxels.obj_center.z;
-	h_voxels.init_face.d = sqrt(
-		((h_voxels.init_face.x ) * (h_voxels.init_face.x )) +
-		((h_voxels.init_face.y) * (h_voxels.init_face.y )) +
-		((h_voxels.init_face.z ) * (h_voxels.init_face.z )));
-	h_voxels.init_face.x /= h_voxels.init_face.d;
-	h_voxels.init_face.y /= h_voxels.init_face.d;
-	h_voxels.init_face.z /= h_voxels.init_face.d;
-	memcpy(&h_voxels.cur_face, &h_voxels.init_face, sizeof(VEC4<T_fp>));
+	T_fp* temp_n = normalize_Vector<T_fp>(o_prop.pos.x - h_voxels.obj_center.x, o_prop.pos.y - h_voxels.obj_center.y, o_prop.pos.z - h_voxels.obj_center.z);
+	h_voxels.init_face = VEC4<T_fp>(temp_n);
+	memcpy(&h_voxels.n, &h_voxels.init_face, sizeof(VEC4<T_fp>));
+	memcpy(&h_voxels.cur_transform, &h_voxels.init_face, sizeof(VEC4<T_fp>));
+
+	T_fp* temp_up = normalize_Vector<T_fp>((T_fp)0.0, (T_fp)1.0, (T_fp)0.0);
+	
+	cross_Vector(temp_up, temp_n);
+	cross_Vector(temp_n, temp_up);
+	free(temp_up); temp_up = NULL;
+	T_fp* temp_v = _normalize_Vector(temp_n);
+	free(temp_n); temp_n = NULL;
+	h_voxels.v = VEC4<T_fp>(temp_v);
+	T_fp* temp_u = normalize_Vector<T_fp>(o_prop.pos.x - h_voxels.obj_center.x, o_prop.pos.y - h_voxels.obj_center.y, o_prop.pos.z - h_voxels.obj_center.z);
+	cross_Vector(temp_v, temp_u);
+	h_voxels.u = VEC4<T_fp>(temp_v);
+	free(temp_u); temp_u = NULL;	free(temp_v); temp_v = NULL;
+
+
 	cudaMalloc((void**)&h_voxels.s1, sizeof(T_fp) * num_voxels);
 	cudaMalloc((void**)&h_voxels.s2, sizeof(T_fp) * num_voxels);
 
@@ -188,20 +197,17 @@ cudaError_t Camera::init_camera_voxel_data(Trixel* t, s64 num_voxels) {
 }
 //**TODO** right now this just does ALL primitives, change to select primitives
 //ALSO REMBER IF YOU WANT TO DO THIS FOR PRIMITVIES MAKE SURE TO CALL TRANSFORM ON ALL CAMERAS, or else you will move the camera adn not the object
-cudaError_t Camera::transform(VEC3<T_fp>* tv, Quaternion* q, volatile u8 transform_select) {
-
+cudaError_t Camera::transform(Input* input, volatile u8 transform_select) {
+	VEC4<T_fp>* tv = input->t_vec;
+	Quaternion* q = input->t_quat;
 	cudaError_t cuda_err;
 	switch (transform_select) {
 	case TRANSLATE_XYZ:	
-		o_prop.pos.x += tv->dx; o_prop.pos.y += tv->dy;	o_prop.pos.z += tv->dz;
+	case TRANSLATE_Z:
+	case TRANSLATE_X:
 	case ROTATE_TRI_PY:
 	case ROTATE_TRI_NY:
-		cuda_err = transform_camera_voxel_device_memory(this, trixels_list, *tv, q, (ROTATE_TRI_PY - TRI_TAG_OFFSET) * 9, transform_select);
-		//cuda_err = transform_trixels_device(trixels_list, this, *tv, q, (ROTATE_TRI_NY - TRI_TAG_OFFSET) * 9, transform_select);
-		break;
-	case ROTATE_CAM_PY:
-	case ROTATE_CAM_NY:
-		cuda_err = rotate(q, transform_select * 9);
+		cuda_err = transform_camera_voxel_device_memory(this, trixels_list, tv, q, transform_select);
 		break;
 	};
 	return cuda_err;

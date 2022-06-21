@@ -1,16 +1,12 @@
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
-#include "platform_common.h"
 #include <math.h>
 #include <stdio.h>
 #include <cuda_profiler_api.h>
 #include <cuda_runtime.h>
 #include "cuda_profiler_api.h"
-#ifndef CUDA_VECTOR_H
-#include "vector.cuh"
-#endif
-#include "Camera.h"
-#include "Trixel.h"
+#include "framework.h"
+#include "framework.cuh"
 
 __global__ void init_tri_mem_cuda(Trixel::trixel_memory* t, T_fp* point_data, u64 max_threads) {
 	u64 i = (u64)threadIdx.x + ((u64)blockIdx.x * blockDim.x);
@@ -57,9 +53,9 @@ __global__ void intersect_voxel_cuda( Camera::pixel_memory* cm,  Camera::voxel_m
 	cm->d_rmi.index[i] = (s64)-1;
 	//cm->d_dist.d[i] = d;
 
-	T_fp rmd_x = -1 * (cvm->d_q->d_rot_m->x->i[0] * -cm->rmd.x[i] + cvm->d_q->d_rot_m->x->j[0] * -cm->rmd.y[i] + cvm->d_q->d_rot_m->x->k[0] * -cm->rmd.z[i]);
-	T_fp rmd_y = -1 * (cvm->d_q->d_rot_m->y->i[0] * -cm->rmd.x[i] + cvm->d_q->d_rot_m->y->j[0] * -cm->rmd.y[i] + cvm->d_q->d_rot_m->y->k[0] * -cm->rmd.z[i]);
-	T_fp rmd_z = -1 * (cvm->d_q->d_rot_m->z->i[0] * -cm->rmd.x[i] + cvm->d_q->d_rot_m->z->j[0] * -cm->rmd.y[i] + cvm->d_q->d_rot_m->z->k[0] * -cm->rmd.z[i]);
+	T_fp rmd_x =  -1 * (cvm->d_q->d_rot_m->x->i[0] * -cm->rmd.x[i] + cvm->d_q->d_rot_m->x->j[0] * -cm->rmd.y[i] + cvm->d_q->d_rot_m->x->k[0] * -cm->rmd.z[i]);
+	T_fp rmd_y =  -1 * (cvm->d_q->d_rot_m->y->i[0] * -cm->rmd.x[i] + cvm->d_q->d_rot_m->y->j[0] * -cm->rmd.y[i] + cvm->d_q->d_rot_m->y->k[0] * -cm->rmd.z[i]);
+	T_fp rmd_z =  -1 * (cvm->d_q->d_rot_m->z->i[0] * -cm->rmd.x[i] + cvm->d_q->d_rot_m->z->j[0] * -cm->rmd.y[i] + cvm->d_q->d_rot_m->z->k[0] * -cm->rmd.z[i]);
 
 
 	while ((index_front - index_start) >= 0) {
@@ -108,9 +104,9 @@ __global__ void intersect_voxel_cuda( Camera::pixel_memory* cm,  Camera::voxel_m
 					cm->d_color.rad[i].r = tm->d_color.rad[tri_i].r;
 					cm->d_color.rad[i].g = tm->d_color.rad[tri_i].g;
 					cm->d_color.rad[i].b = tm->d_color.rad[tri_i].b;
-					cm->pnt.x[i] = d * rmd_x;
-					cm->pnt.y[i] = d * rmd_y;
-					cm->pnt.z[i] = d * rmd_z;
+					cm->pnt.x[i] = d * rmd_x + cvm->d_q->d_rot_m->x->w[0];
+					cm->pnt.y[i] = d * rmd_y + cvm->d_q->d_rot_m->y->w[0];
+					cm->pnt.z[i] = d * rmd_z + cvm->d_q->d_rot_m->z->w[0];
 					cm->norm.x[i] = tm->d_n.x[tri_i];
 					cm->norm.y[i] = tm->d_n.y[tri_i];
 					cm->norm.z[i] = tm->d_n.z[tri_i];

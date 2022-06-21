@@ -1,8 +1,9 @@
 #include <fstream>
 #include <sstream>
 #include <string>
-#include "platform_common.h"
-#include "Trixel.h"
+#include "framework.h"
+
+
 #define XYZ_MASK 0
 #define XYZCI_MASK 1
 void read_ply(const char* file_name, T_fp** points_list, T_uint* num_tri, kd_leaf_sort** kd_leafs, kd_vertex** vertex_list, T_uint* num_vert, u8 mode) {

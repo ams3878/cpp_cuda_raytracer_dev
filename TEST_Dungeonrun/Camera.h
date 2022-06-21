@@ -4,11 +4,11 @@
 #include "Vector.h"
 #include <math.h>
 #include "cuda_runtime.h"
-#include "platform_common.h"
+#include "typedefs.h"
 #include "Color.h"
 #include "Quaternion.h"
 class Trixel;
-
+class Input;
 class Camera
 {
 public:
@@ -67,8 +67,7 @@ public:
 		Quaternion* q,*d_q, * next_rotation;
 		T_fp* s1, *s2;
 		u8* is_leaf;
-		VEC4<T_fp> cur_face, init_face;
-		VEC3<T_fp> obj_center;
+		VEC4<T_fp> n,u,v,cur_transform, cur_rotation,init_face, obj_center;
 		struct childs { s64 left, right, triangle, parent;
 		}*children;
 		s32* d_voxel_index_queue;
@@ -90,7 +89,7 @@ public:
 	cudaError_t init_camera_voxel_data(Trixel* t, s64 num_voxels);
 	
 	//ALSO REMBER IF YOU WANT TO DO THIS FOR PRIMITVIES MAKE SURE TO CALL TRANSFORM ON ALL CAMERAS, or else you will move the camera adn not the object
-	cudaError_t transform(VEC3<T_fp>* tv, Quaternion* q, u8 transform_select);
+	cudaError_t transform(Input* input, u8 transform_select);
 
 	cudaError_t color_pixels();
 	cudaError_t rotate(Quaternion* q, int select);
@@ -99,7 +98,7 @@ public:
 extern "C" cudaError_t init_camera_device_memory(Camera * c);
 extern "C" cudaError_t init_camera_trixel_device_memory(Trixel * t, Camera * c);
 extern "C" cudaError_t init_camera_voxel_device_memory(Trixel * t, Camera * c);
-extern "C" cudaError_t transform_camera_voxel_device_memory(Camera * c, Trixel * t, VEC3<T_fp> tv, Quaternion * q, int offset, u8 transform_select);
+extern "C" cudaError_t transform_camera_voxel_device_memory(Camera * c, Trixel * t, VEC4<T_fp>* tv, Quaternion * q,  u8 transform_select);
 extern "C" cudaError_t color_camera_device(Camera * c);
-extern "C" cudaError_t transform_trixels_device(Trixel * t, Camera * c, VEC3<T_fp> scale_factor, Quaternion * q, int offset, u8 transform_select);
+//extern "C" cudaError_t transform_trixels_device(Camera * c, Trixel * t, VEC4<T_fp>* tv, Quaternion * q, u8 transform_select);
 #endif

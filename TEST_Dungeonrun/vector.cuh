@@ -3,12 +3,12 @@
 #define CUDA_VECTOR_H
 #include "cuda_runtime.h"
 #include "device_launch_parameters.h"
-#include "platform_common.h"
 #include <stdio.h>
+#include "typedefs.h"
 #include <typeinfo>
 
-#define MOLLER_TRUMBORE_DEVICE_EPSILON 1e-80
-#define DEVICE_EPSILON_SINGLE 1e-35
+#define MOLLER_TRUMBORE_DEVICE_EPSILON 1e-16
+#define DEVICE_EPSILON_SINGLE 1e-16
 //This can be changed for release mode to bigger, but voxel traversal too many threads in debug mode
 #define BLOCK_SIZE 512 
 

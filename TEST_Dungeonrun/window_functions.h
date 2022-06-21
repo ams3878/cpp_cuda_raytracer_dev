@@ -5,6 +5,7 @@
 #include <winuser.h>
 #include <tchar.h>
 #include "platform_common.h"
+struct Input;
 #define MAIN_WIN_CLASS 0
 
   u32 initialize_hwnd_class(WNDCLASS* class_list, WNDPROC w_c);

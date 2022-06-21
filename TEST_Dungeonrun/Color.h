@@ -1,6 +1,6 @@
 #pragma once
-#include "platform_common.h"
-#include "vector.h"
+#include "typedefs.h"
+
 class Color
 {
 public:

@@ -89,6 +89,7 @@
   <ItemGroup>
     <ClCompile Include="Camera.cpp" />
     <ClCompile Include="Color.cpp" />
+    <ClCompile Include="Input.cpp" />
     <ClCompile Include="old_reference_functions.c">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">true</ExcludedFromBuild>
@@ -105,6 +106,7 @@
     <ClInclude Include="Color.h" />
     <ClInclude Include="framework.cuh" />
     <ClInclude Include="framework.h" />
+    <ClInclude Include="Input.h" />
     <ClInclude Include="Quaternion.h" />
     <ClInclude Include="sort.h" />
     <ClInclude Include="typedefs.h" />

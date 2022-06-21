@@ -15,11 +15,11 @@ Quaternion::Quaternion() {
 Quaternion::Quaternion(u32 s) : Quaternion() {
 	if (s > 0) {
 		vec = new VEC4_CUDA<T_fp>(s);
-		rot_m = new VEC3_CUDA<VEC3_CUDA<T_fp>>(1);
-		rot_m->x = new VEC3_CUDA<T_fp>(s);
-		rot_m->y = new VEC3_CUDA<T_fp>(s);
-		rot_m->z = new VEC3_CUDA<T_fp>(s);
-
+		rot_m = new VEC4_CUDA<VEC4_CUDA<T_fp>>(1);
+		rot_m->x = new VEC4_CUDA<T_fp>(s);
+		rot_m->y = new VEC4_CUDA<T_fp>(s);
+		rot_m->z = new VEC4_CUDA<T_fp>(s);
+		rot_m->w = new VEC4_CUDA<T_fp>(s);
 		size = s;
 	}
 }
@@ -27,16 +27,19 @@ Quaternion::Quaternion(u32 s, int c_flag) : Quaternion((c_flag & 1)?0:s) {
 	if (c_flag & 1) { 
 		size = s;
 		isCUDA = true;
-		initialize_CUDA(); }
+		initialize_CUDA();
+	}
 }
-int Quaternion::set_rot_matrix(Quaternion q) {
-	if (isCUDA) { set_rot_matrix_CUDA(q.rot_m); }
-	else { set_rot_matrix(); }
+int Quaternion::set_transformation_matrix_tran(VEC4<T_fp> delta) {
+	for (T_uint i = 0; i < size; i++) {
+		rot_m->x->w[i] += delta.x;
+		rot_m->y->w[i] += delta.y;
+		rot_m->z->w[i] += delta.z;
+	}
 	return 0;
-}
-
-int Quaternion::set_rot_matrix() {
-	for (T_uint i = 0, ii = 0; i < size; i++, ii+=9) {
+};
+int Quaternion::set_transformation_matrix_rot() {
+	for (T_uint i = 0; i < size; i++) {
 
 		rot_m->x->i[i] = 1 - 2 * _j(i) * _j(i) - 2 * _k(i) * _k(i);
 		rot_m->x->j[i] = 2 * _i(i) * _j(i) - 2 * _k(i) * _w(i);
@@ -51,19 +54,18 @@ int Quaternion::set_rot_matrix() {
 		rot_m->z->k[i] = 1 - 2 * _i(i) * _i(i) - 2 * _j(i) * _j(i);
 		
 	}
-
 	return 0;
 };
 
-   int Quaternion::_memset(VEC4_CUDA<T_fp>* v) {
-//	memcpy(h_vec, v, sizeof(quaternion_vec) * size);
-	memcpy(vec->complex.i, v->complex.i, sizeof(T_fp) * size);
-	memcpy(vec->complex.j, v->complex.j, sizeof(T_fp) * size);
-	memcpy(vec->complex.k, v->complex.k, sizeof(T_fp) * size);
-	memcpy(vec->w, v->w, sizeof(T_fp) * size);
-	return 0;
+int Quaternion::_memset(VEC4<T_fp>* v) {
 
+	memcpy(vec->complex.i, &(v->i), sizeof(T_fp));
+	memcpy(vec->complex.j, &(v->j), sizeof(T_fp));
+	memcpy(vec->complex.k, &(v->k), sizeof(T_fp));
+	memcpy(vec->w, &(v->w), sizeof(T_fp));
+	return 0;
 }
+
 int Quaternion::_memset(T_fp* _w, T_fp* _i, T_fp* _j, T_fp* _k) {
 	memcpy(vec->complex.i, _i, sizeof(T_fp) * size);
 	memcpy(vec->complex.j, _j, sizeof(T_fp) * size);

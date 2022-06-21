@@ -69,7 +69,7 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance,
     Camera* main_cam = new Camera(g_render_res.w, g_render_res.h, // res_w, res_h
         g_render_res.ar * .024, .024, .055, // f_w, f_h, focal_len
        0.0, 0.10, 1.0, // position
-        0.100, 0.100, 0.00, // look at
+        0.00, 0.100, 0.00, // look at
         0.0, 1.0, 0.0// up
     );
     T_fp* points_for_trixels = 0, *points_for_trixels_1 = 0, * points_for_trixels_2 = 0;
@@ -173,24 +173,8 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance,
     u32 render_mode = 0;
     #define TICK_RATE 30
     float cur_tick = 0;
-    float cam_speed = .05f;
-   /// Quaternion::quaternion_vec* q_vec = (Quaternion::quaternion_vec*)malloc(sizeof(Quaternion::quaternion_vec) );
-    // float 4 { ypos, yneg, xpos, xneg
-    VEC4_CUDA<T_fp>* q_vec = new VEC4_CUDA<T_fp>(4);
-    
-    for (int iii = 0; iii < 4; iii++) {
-        q_vec->complex.i[iii] = 0.0;
-        q_vec->complex.j[iii] = 0.09950371902099893;
-        q_vec->complex.k[iii] = 0.0;
-        q_vec->w[iii] = 0.9950371902099893;
-    }
+    float cam_speed = .005f;
 
-    Quaternion a = Quaternion(4, 0);
-    a._memset(q_vec);
-    a.set_rot_matrix(NULL);
-    //Quaternion a = Quaternion(4, 1);
-    //cudaMemcpy(a.rot_m, t_a.rot_m, sizeof(T_fp) * 4 * 9, cudaMemcpyHostToDevice);
-    g_input->translate->w = cam_speed;
 
     while (*g_running) {
         if (cur_tick >= 1 / (TICK_RATE * delta_time)) {
@@ -205,42 +189,28 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance,
                 FreeConsole();
             }
             if (is_click_hold(BUTTON_R)) {
-                g_input->translate->dx = (T_fp)0.0;
-                g_input->translate->dy = (T_fp)0.0;
-                g_input->translate->dz = (T_fp)0.0;
-                main_cam->transform(g_input->translate, &a, ROTATE_TRI_PY);
+                (*g_input).set_quat(0.0, 0.09950371902099893, 0.0, 0.9950371902099893);
+                main_cam->transform(g_input, ROTATE_TRI_PY);
             }
             if (is_click_hold(BUTTON_W)) {
-                g_input->translate->dx = main_cam->o_prop.n.x;
-                g_input->translate->dy = main_cam->o_prop.n.y;
-                g_input->translate->dz = main_cam->o_prop.n.z;
-
-                main_cam->transform(g_input->translate, &a, TRANSLATE_XYZ);
+                (*g_input).set_quat(main_cam->o_prop.n.x,  main_cam->o_prop.n.y, main_cam->o_prop.n.z, cam_speed);
+                main_cam->transform(g_input, TRANSLATE_Z);
             }
             if (is_click_hold(BUTTON_S)) {
-                g_input->translate->dx = -main_cam->o_prop.n.x ;
-                g_input->translate->dy = -main_cam->o_prop.n.y ;
-                g_input->translate->dz = -main_cam->o_prop.n.z ;
-
-                main_cam->transform(g_input->translate, &a, TRANSLATE_XYZ);
+                (*g_input).set_quat(main_cam->o_prop.n.x, main_cam->o_prop.n.y, main_cam->o_prop.n.z, -cam_speed);
+                main_cam->transform(g_input, TRANSLATE_Z);
             }
             if (is_click_hold(BUTTON_Q)) { // STRAFE LEFT
-                g_input->translate->dx = -main_cam->o_prop.u.x ;
-                g_input->translate->dy = -main_cam->o_prop.u.y ;
-                g_input->translate->dz = -main_cam->o_prop.u.z;
-                main_cam->transform(g_input->translate, &a, TRANSLATE_XYZ);
+                (*g_input).set_quat(main_cam->o_prop.u.x, main_cam->o_prop.u.y, main_cam->o_prop.u.z, cam_speed);
+                main_cam->transform(g_input, TRANSLATE_X);
             }
             if (is_click_hold(BUTTON_E)) {// STRAFE RIGHT
-                g_input->translate->dx = main_cam->o_prop.u.x ;
-                g_input->translate->dy = main_cam->o_prop.u.y;
-                g_input->translate->dz = main_cam->o_prop.u.z ;
-                main_cam->transform(g_input->translate, &a, TRANSLATE_XYZ);            }
-
+                (*g_input).set_quat(main_cam->o_prop.u.x, main_cam->o_prop.u.y, main_cam->o_prop.u.z, -cam_speed);
+                main_cam->transform(g_input, TRANSLATE_X);    
+            }
             if (is_click_hold(BUTTON_T)) {
-                g_input->translate->dx = (T_fp)0.0;
-                g_input->translate->dy = (T_fp)0.0;
-                g_input->translate->dz = (T_fp)0.0;
-                main_cam->transform(g_input->translate, &a, ROTATE_TRI_NY);
+                (*g_input).set_quat(0.0, -0.09950371902099893, 0.0, 0.9950371902099893);
+                main_cam->transform(g_input, ROTATE_TRI_NY);
             }
             cur_tick = 0;
         }
@@ -251,7 +221,7 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance,
         QueryPerformanceCounter(&frame_end_time);
         delta_time = (float)(frame_end_time.QuadPart - frame_begin_time.QuadPart) / performance_frequency;
         frame_begin_time = frame_end_time;
-        
+        /*
         wprintf(L"\x1b[s");
         printf("Last Cuda Error: %s\n", cudaGetErrorString(cudaPeekAtLastError()));
         printf("FPS: %f \n", 1 / delta_time);
@@ -260,7 +230,7 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance,
         printf("Camera U [x:%f y:%f z:%f] \n", main_cam->o_prop.u.x, main_cam->o_prop.u.y, main_cam->o_prop.u.z);
         printf("Camera V [x:%f y:%f z:%f] \n", main_cam->o_prop.v.x, main_cam->o_prop.v.y, main_cam->o_prop.v.z);
 
-        wprintf(L"\x1b[u");
+        wprintf(L"\x1b[u");*/
         cur_tick++;
     } 
 

@@ -9,7 +9,7 @@ typedef long long s64;
 typedef unsigned long long u64;
 
 #define PPP_TAG 0
-
+#define NULL 0
 
 #if PPP_TAG == 0
 typedef float T_fp;

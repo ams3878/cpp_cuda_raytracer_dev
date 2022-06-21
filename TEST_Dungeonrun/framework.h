@@ -1,8 +1,9 @@
 #pragma once
-#include "platform_common.h"
-
+#include "typedefs.h"
+#include <windows.h>
 #include "Color.h"
 #include "Camera.h"
 #include "Trixel.h"
 #include "Vector.h"
 #include "Quaternion.h"
+#include "Input.h"

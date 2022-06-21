@@ -1,5 +1,5 @@
 #include "window_functions.h"
-
+#include "framework.h"
 u32 initialize_hwnd_class(WNDCLASS* wndclass,  WNDPROC w_c) {
   wndclass->lpszClassName = _T("Game Window Class");    
   wndclass->cbClsExtra = 0;
