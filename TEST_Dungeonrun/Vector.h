@@ -106,7 +106,7 @@
           w = (T)1.0;
       };
       VEC4<T> operator-() {
-          return VEC4<T>(x, y, z, -w);
+          return VEC4<T>(-x, -y, -z, w);
       };
       VEC4<T> operator-(VEC4<T> rhs) {
           return VEC4<T>(

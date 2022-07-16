@@ -138,7 +138,7 @@ cudaError_t Camera::init_camera_voxel_data(Trixel* t, s64 num_voxels) {
 	h_voxels.obj_center.y = (T_fp)0.0;
 	h_voxels.obj_center.z = (T_fp)0.0;
 	T_fp* temp_n = normalize_Vector<T_fp>(o_prop.pos.x - h_voxels.obj_center.x, o_prop.pos.y - h_voxels.obj_center.y, o_prop.pos.z - h_voxels.obj_center.z);
-	h_voxels.init_face = VEC4<T_fp>(temp_n);
+	h_voxels.init_face = -VEC4<T_fp>(temp_n);
 	memcpy(&h_voxels.n, &h_voxels.init_face, sizeof(VEC4<T_fp>));
 	memcpy(&h_voxels.cur_transform, &h_voxels.init_face, sizeof(VEC4<T_fp>));
 

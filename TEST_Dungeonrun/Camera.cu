@@ -198,7 +198,6 @@ __global__ void rotate_cam_voxel_mem_cuda(Camera::voxel_memory* dvm, VEC4_CUDA<T
     if (voxel_index >= max_threads) { return; }
     VEC4_CUDA<T_fp>* cur_vec = dvm->d_q->d_vec;
     VEC4_CUDA<VEC4_CUDA<T_fp>>* cur_rot = dvm->d_q->d_rot_m;
-    printf("\tbefore: %f %f %f", dvm->cur_transform.x, dvm->cur_transform.y, dvm->cur_transform.z);
 
     if (new_vec) { quaternion_mul(cur_vec, new_vec, voxel_index); }
 
@@ -215,7 +214,6 @@ __global__ void rotate_cam_voxel_mem_cuda(Camera::voxel_memory* dvm, VEC4_CUDA<T
     cur_rot->z->k[voxel_index] = (1 - 2 * cur_vec->i[voxel_index] * cur_vec->i[voxel_index] - 2 * cur_vec->j[voxel_index] * cur_vec->j[voxel_index]);
 
     (dvm->cur_transform).rotate(cur_rot->x, cur_rot->y, cur_rot->z, voxel_index);
-    printf("\tafter: %f %f %f \n", dvm->cur_transform.x, dvm->cur_transform.y, dvm->cur_transform.z);
 }
 
 __global__ void update_trixels_device_cuda(Trixel::trixel_memory* tm, Camera::trixel_memory* cm, u64 max_threads) {
@@ -260,31 +258,29 @@ cudaError_t transform_camera_voxel_device_memory(Camera* c, Trixel* t, VEC4<T_fp
     case TRANSLATE_XYZ:
     case TRANSLATE_X:
     case TRANSLATE_Z:
-
-        cudaMemcpy(&c->h_voxels.cur_transform, tv, sizeof(VEC4<T_fp>), cudaMemcpyHostToHost);
+        printf("N : %f %f %f %f\n", c->h_voxels.n.x, c->h_voxels.n.y, c->h_voxels.n.z, c->h_voxels.n.w);
+        printf("N : %f %f %f %f\n", c->h_voxels.init_face.x, c->h_voxels.init_face.y, c->h_voxels.init_face.z, c->h_voxels.init_face.w);
+        cudaMemcpy(&c->h_voxels.cur_transform, &-*tv, sizeof(VEC4<T_fp>), cudaMemcpyHostToHost);
         cudaMemcpy(c->d_voxels, &c->h_voxels, sizeof(Camera::voxel_memory), cudaMemcpyHostToDevice);
-
-
+        rotate_cam_voxel_mem_cuda << < 1, 1 >> > (
+            c->d_voxels, NULL, 1);
         translate_cam_voxel_mem_cuda << < 1 + (u32)(c->h_voxels.num_voxels / BLOCK_SIZE), BLOCK_SIZE >> > (
-            c->d_voxels, c->d_trixels, true, c->h_voxels.num_voxels);
+            c->d_voxels, c->d_trixels, false, c->h_voxels.num_voxels);
         update_trixels_device_cuda << < 1 + (u32)(t->num_trixels / BLOCK_SIZE), BLOCK_SIZE >> > (
             (Trixel::trixel_memory*)t->d_mem, c->d_trixels, t->num_trixels);
-        rotate_cam_voxel_mem_cuda << < 1, 1 >> > (
-            c->d_voxels, NULL, 1);
-        cudaMemcpy(&c->h_voxels, c->d_voxels, sizeof(Camera::voxel_memory), cudaMemcpyDeviceToHost);
-       // update_voxel_transform_m_translate_cuda << <1, 1 >> > (//update device obj center ( translation part of transformation matrix)
-        //    c->d_voxels, 1);
-       // cudaMemcpy(&c->h_voxels, c->d_voxels, sizeof(Camera::voxel_memory), cudaMemcpyDeviceToHost);
-        printf("N : %f %f %f %f\n", c->h_voxels.init_face.x, c->h_voxels.init_face.y, c->h_voxels.init_face.z, c->h_voxels.init_face.w);
 
+        //c->h_voxels.n -= c->h_voxels.cur_transform;
+        //normalize_Vector(&c->h_voxels.n);
         c->h_voxels.init_face += c->h_voxels.cur_transform;
         normalize_Vector(&c->h_voxels.init_face);
-        cudaMemcpy(&c->h_voxels.cur_transform, &c->h_voxels.init_face, sizeof(VEC4<T_fp>), cudaMemcpyHostToHost);
+        cudaMemcpy(&c->h_voxels.cur_transform, &-c->h_voxels.init_face, sizeof(VEC4<T_fp>), cudaMemcpyHostToHost);
         cudaMemcpy(c->d_voxels, &c->h_voxels, sizeof(Camera::voxel_memory), cudaMemcpyHostToDevice);
         rotate_cam_voxel_mem_cuda << < 1, 1 >> > (
-            c->d_voxels, NULL, 1);
+         c->d_voxels, NULL, 1);
         cudaMemcpy(&c->h_voxels, c->d_voxels, sizeof(Camera::voxel_memory), cudaMemcpyDeviceToHost);
-        cudaMemcpy(&c->h_voxels.n, &c->h_voxels.cur_transform, sizeof(VEC4<T_fp>), cudaMemcpyHostToHost);
+        c->h_voxels.n = -c->h_voxels.cur_transform;
+
+        printf("N : %f %f %f %f\n", c->h_voxels.n.x, c->h_voxels.n.y, c->h_voxels.n.z, c->h_voxels.n.w);
         printf("N : %f %f %f %f\n", c->h_voxels.init_face.x, c->h_voxels.init_face.y, c->h_voxels.init_face.z, c->h_voxels.init_face.w);
 
         printf("\n");
@@ -303,10 +299,12 @@ cudaError_t transform_camera_voxel_device_memory(Camera* c, Trixel* t, VEC4<T_fp
         cudaMemcpy(&c->h_voxels, c->d_voxels, sizeof(Camera::voxel_memory), cudaMemcpyDeviceToHost);
 
         c->h_voxels.cur_transform += c->h_voxels.n;
+        //c->h_voxels.cur_transform = -c->h_voxels.cur_transform;
+
 
         cudaMemcpy(c->d_voxels, &c->h_voxels, sizeof(Camera::voxel_memory), cudaMemcpyHostToDevice);
         translate_cam_voxel_mem_cuda << < 1 + (u32)(c->h_voxels.num_voxels / BLOCK_SIZE), BLOCK_SIZE >> > (
-            c->d_voxels, c->d_trixels, false, c->h_voxels.num_voxels);
+            c->d_voxels, c->d_trixels, true, c->h_voxels.num_voxels);
         update_trixels_device_cuda << < 1 + (u32)(t->num_trixels / BLOCK_SIZE), BLOCK_SIZE >> > (
             (Trixel::trixel_memory*)t->d_mem, c->d_trixels, t->num_trixels);
         c->h_voxels.cur_transform -= c->h_voxels.n;
@@ -314,7 +312,9 @@ cudaError_t transform_camera_voxel_device_memory(Camera* c, Trixel* t, VEC4<T_fp
         normalize_Vector(&c->h_voxels.cur_transform);
 
         cudaMemcpy(&c->h_voxels.n, &-c->h_voxels.cur_transform, sizeof(VEC4<T_fp>), cudaMemcpyHostToHost);
-        printf("N : %f %f %f %f\n\n", c->h_voxels.n.x, c->h_voxels.n.y, c->h_voxels.n.z, c->h_voxels.n.w);
+
+        printf("N : %f %f %f %f\n", c->h_voxels.n.x, c->h_voxels.n.y, c->h_voxels.n.z, c->h_voxels.n.w);
+        printf("N : %f %f %f %f\n", c->h_voxels.init_face.x, c->h_voxels.init_face.y, c->h_voxels.init_face.z, c->h_voxels.init_face.w);
 
         break;
     }
