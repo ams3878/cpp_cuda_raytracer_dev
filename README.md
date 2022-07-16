@@ -14,7 +14,7 @@ Functionality / Algorithms:
    - Linear / No interpolation since each frame is rendered in real time and incremented is fixed
 
 Metrics
-  - Standfor Dragon (800k) ~ 150 FPS
+  - Standford Dragon (800k primitives) ~ 100 (25 at 90%+ pixel coverage) FPS  960 x 540
 
 
 https://user-images.githubusercontent.com/22137697/179344041-96da1a67-7e1a-4c4a-8792-e9d53a0468eb.mp4
