@@ -35,14 +35,15 @@ __global__ void init_cam_tri_mem_cuda(Trixel::trixel_memory* tm, Camera::trixel_
 	cm->d_w[i] = device_dot(cm->d_q.x[i], cm->d_q.y[i], cm->d_q.z[i], tm->d_edges.e2.x[i], tm->d_edges.e2.y[i], tm->d_edges.e2.z[i]);
 }
 
-__global__ void intersect_voxel_cuda( Camera::pixel_memory* cm,  Camera::voxel_memory* cvm, Camera::trixel_memory* ctm, Trixel::trixel_memory* tm, s64 max_threads) {
+__global__ void intersect_voxel_cuda( Camera::pixel_memory* cm,  Camera::voxel_memory* cvm, Camera::trixel_memory* ctm, VEC4<VEC4<T_fp>*>* rot_m, Trixel::trixel_memory* tm, s64 max_threads) {
 	s64 i = (s64)threadIdx.x + ((s64)threadIdx.y * blockDim.x) + ((s64)blockIdx.x * blockDim.x * blockDim.y);
 	//s64 i = (s64)threadIdx.x + ((s64)blockIdx.x * blockDim.x );
 
 	if (i >= max_threads) { return; }
 
 	T_fp d = 400.0;//**TODO** get rid of hardcode
-	T_fp t0x, t1x, t0y, t1y, t0z, t1z, maxt0, mint1, dir, s1, s2;
+	T_fp t0x, t1x, t0y, t1y, t0z, t1z, maxt0, mint1, dir, s1, s2, ds;
+	T_fp tmpqx, tmpqy, tmpqz;
 	s32 cni, index_front = i * cvm->index_queue_offset, index_start = i * cvm->index_queue_offset;
 	s64 tri_i;
 	T_fp pe1, f, p_x, p_y, p_z, u, v, w;
@@ -53,9 +54,14 @@ __global__ void intersect_voxel_cuda( Camera::pixel_memory* cm,  Camera::voxel_m
 	cm->d_rmi.index[i] = (s64)-1;
 	//cm->d_dist.d[i] = d;
 
-	T_fp rmd_x =  -1 * (cvm->d_q->d_rot_m->x->i[0] * -cm->rmd.x[i] + cvm->d_q->d_rot_m->x->j[0] * -cm->rmd.y[i] + cvm->d_q->d_rot_m->x->k[0] * -cm->rmd.z[i]);
-	T_fp rmd_y =  -1 * (cvm->d_q->d_rot_m->y->i[0] * -cm->rmd.x[i] + cvm->d_q->d_rot_m->y->j[0] * -cm->rmd.y[i] + cvm->d_q->d_rot_m->y->k[0] * -cm->rmd.z[i]);
-	T_fp rmd_z =  -1 * (cvm->d_q->d_rot_m->z->i[0] * -cm->rmd.x[i] + cvm->d_q->d_rot_m->z->j[0] * -cm->rmd.y[i] + cvm->d_q->d_rot_m->z->k[0] * -cm->rmd.z[i]);
+	T_fp obj_dx = rot_m->x->w;
+	T_fp obj_dy = rot_m->y->w;
+	T_fp obj_dz = rot_m->z->w;
+
+	T_fp rmd_x = -1 * (rot_m->x->i * -cm->rmd.x[i] + rot_m->x->j * -cm->rmd.y[i] + rot_m->x->k * -cm->rmd.z[i]);// +obj_dx);
+	T_fp rmd_y = -1 * (rot_m->y->i * -cm->rmd.x[i] + rot_m->y->j * -cm->rmd.y[i] + rot_m->y->k * -cm->rmd.z[i]);// + obj_dy);
+	T_fp rmd_z = -1 * (rot_m->z->i * -cm->rmd.x[i] + rot_m->z->j * -cm->rmd.y[i] + rot_m->z->k * -cm->rmd.z[i]);// + obj_dz);
+
 
 
 	while ((index_front - index_start) >= 0) {
@@ -77,13 +83,16 @@ __global__ void intersect_voxel_cuda( Camera::pixel_memory* cm,  Camera::voxel_m
 
 		//if ((t0x > t1y) || (t0y > t1x)) { return; }
 		dir = ((rmd_x * cvm->cut_flags[cni].x) + (rmd_y * cvm->cut_flags[cni].y) + (rmd_z * cvm->cut_flags[cni].z));
-
-		maxt0 = fmax(t0z, fmax(t0x, t0y));
-		mint1 = fmin(t1z, fmin(t1x, t1y));
-
+		ds = 0;
+		ds = ((obj_dx * cvm->cut_flags[cni].x) + (obj_dy * cvm->cut_flags[cni].y) + (obj_dz * cvm->cut_flags[cni].z));
+		
+		maxt0 = fmax(t0z , fmax(t0x , t0y ));
+		mint1 = fmin(t1z , fmin(t1x , t1y ));
+		maxt0 = fmax(t0z + obj_dz / rmd_z, fmax(t0x + obj_dx / rmd_x, t0y + obj_dy / rmd_y));	mint1 = fmin(t1z + obj_dz / rmd_z, fmin(t1x + obj_dx / rmd_x, t1y + obj_dy / rmd_y));
 
 
 		if (cvm->is_leaf[cni]) {
+			//d_t is ray_origin - vertex0
 			tri_i = cvm->children[cni].triangle;
 			device_cross(&p_x, &p_y, &p_z,
 				rmd_x, rmd_y, rmd_z,
@@ -93,10 +102,24 @@ __global__ void intersect_voxel_cuda( Camera::pixel_memory* cm,  Camera::voxel_m
 			if (!(f < MOLLER_TRUMBORE_DEVICE_EPSILON && f > -MOLLER_TRUMBORE_DEVICE_EPSILON)) {
 				pe1 = 1.0 / f;
 				u = pe1 * device_dot(p_x, p_y, p_z,
-					ctm->d_t.x[tri_i], ctm->d_t.y[tri_i], ctm->d_t.z[tri_i]);
+					ctm->d_t.x[tri_i] - obj_dx, ctm->d_t.y[tri_i] - obj_dy, ctm->d_t.z[tri_i] - obj_dz);
+				//ctm->d_t.x[tri_i] , ctm->d_t.y[tri_i] , ctm->d_t.z[tri_i] );
+
+				device_cross(&tmpqx, &tmpqy, &tmpqz,
+					ctm->d_t.x[tri_i] - obj_dx, ctm->d_t.y[tri_i] - obj_dy, ctm->d_t.z[tri_i] - obj_dz,
+				tm->d_edges.e1.x[tri_i], tm->d_edges.e1.y[tri_i], tm->d_edges.e1.z[tri_i]);
+				if (i == 319278) {
+				//	printf("new(%d) : %f %f %f \n", i, tmpqx, tmpqy, tmpqz);
+				//	printf("old(%d) : %f %f %f \n", i, ctm->d_q.x[tri_i], ctm->d_q.y[tri_i], ctm->d_q.z[tri_i]);
+				}
 				v = pe1 * device_dot(rmd_x, rmd_y, rmd_z,
-					ctm->d_q.x[tri_i], ctm->d_q.y[tri_i], ctm->d_q.z[tri_i]);
+					//ctm->d_q.x[tri_i], ctm->d_q.y[tri_i], ctm->d_q.z[tri_i]);
+					tmpqx, tmpqy, tmpqz);
+
 				w = pe1 * ctm->d_w[tri_i];
+				w = pe1 * device_dot(tm->d_edges.e2.x[tri_i], tm->d_edges.e2.y[tri_i], tm->d_edges.e2.z[tri_i],
+					tmpqx, tmpqy, tmpqz);
+
 				if ((w < d) && !((u < MOLLER_TRUMBORE_DEVICE_EPSILON) || (v < MOLLER_TRUMBORE_DEVICE_EPSILON) || ((u + v) > 1 + MOLLER_TRUMBORE_DEVICE_EPSILON) || (w < MOLLER_TRUMBORE_DEVICE_EPSILON))) {
 					d = w;
 					cm->d_rmi.index[i] = tri_i;
@@ -104,13 +127,15 @@ __global__ void intersect_voxel_cuda( Camera::pixel_memory* cm,  Camera::voxel_m
 					cm->d_color.rad[i].r = tm->d_color.rad[tri_i].r;
 					cm->d_color.rad[i].g = tm->d_color.rad[tri_i].g;
 					cm->d_color.rad[i].b = tm->d_color.rad[tri_i].b;
-					cm->pnt.x[i] = d * rmd_x + cvm->d_q->d_rot_m->x->w[0];
-					cm->pnt.y[i] = d * rmd_y + cvm->d_q->d_rot_m->y->w[0];
-					cm->pnt.z[i] = d * rmd_z + cvm->d_q->d_rot_m->z->w[0];
+					cm->pnt.x[i] = d * rmd_x + obj_dx;
+					cm->pnt.y[i] = d * rmd_y + obj_dy;
+					cm->pnt.z[i] = d * rmd_z + obj_dz;
 					cm->norm.x[i] = tm->d_n.x[tri_i];
 					cm->norm.y[i] = tm->d_n.y[tri_i];
 					cm->norm.z[i] = tm->d_n.z[tri_i];
-					cm->norm.rotate(cvm->d_q->d_rot_m, i, 0, -1);				}
+					cm->norm.device_rotate(rot_m, i, -1);
+					//return;
+				}
 			}
 			continue;
 		}
@@ -118,11 +143,9 @@ __global__ void intersect_voxel_cuda( Camera::pixel_memory* cm,  Camera::voxel_m
 
 			//cm->d_rmi.index[i] = (s64)-2;
 			maxt0 *= dir; mint1 *= dir;		
-			s1 = cvm->s1[cni] + DEVICE_EPSILON_SINGLE;
-			s2 = cvm->s2[cni];
-			cm->d_color.rad[i].r += .001;
-			//cvm->d_voxel_index_queue[++index_front] = cvm->children[cni].left;
-			//cvm->d_voxel_index_queue[++index_front] = cvm->children[cni].right;
+			s1 = cvm->s1[cni] + DEVICE_EPSILON_SINGLE + ds;
+			s2 = cvm->s2[cni] + ds;
+			//cm->d_color.rad[i].r += .001;
 
 		
 			if (maxt0  < s2 + DEVICE_EPSILON_SINGLE) {
@@ -187,18 +210,12 @@ cudaError_t intersect_trixels_device(Trixel* t, Camera* c, u32 mode) {
 	if (cudaStatus != cudaSuccess) {
 		printf("cudaSetDevice failed!  Do you have a CUDA-capable GPU installed?\n");
 	}
-	/*
-	intersect_trixel_cuda << < 1 + (u32)(c->f_prop.res.count / 128), 128 >> > (
-		c->d_mem,
-		t->num_trixels,
-		c->d_trixels,
-		(Trixel::trixel_memory*)t->d_mem,
-		c->f_prop.res.count);
-	*/
-	intersect_voxel_cuda << < 1 + (u32)(c->f_prop.res.count / (512)), (512)>> > (
+
+	intersect_voxel_cuda << < 1 + (u32)(c->f_prop.res.count / (512)), (512) >> > (
 		c->d_mem,
 		c->d_voxels,
 		c->d_trixels,
+		c->object_list[0]->quat->d_rot_m,
 		(Trixel::trixel_memory*)t->d_mem,
 		c->f_prop.res.count);		
 	

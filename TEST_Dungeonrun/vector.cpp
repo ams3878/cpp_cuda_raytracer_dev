@@ -9,3 +9,31 @@ int vector_log2(u64 value) {
     value |= value >> 32;
     return tab64[((u64)((value - (value >> 1)) * 0x07EDD5E59A4E28C2)) >> 58];
 }
+void VEC4<T_fp>::rotate(VEC4<VEC4<T_fp>*>*cur_rot, VEC4<T_fp>*cur_vec, VEC4<T_fp>*new_vec, int reverse) {
+    //quaternion Multiply if we are doing new rotation
+    if (new_vec) {
+        T_fp t_i = cur_vec->i, t_j = cur_vec->j, t_k = cur_vec->k, t_w = cur_vec->w;
+        cur_vec->i = t_j * new_vec->z - t_k * new_vec->y + t_i * new_vec->w + t_w * new_vec->x;
+        cur_vec->j = t_k * new_vec->x - t_i * new_vec->z + t_j * new_vec->w + t_w * new_vec->y;
+        cur_vec->k = t_i * new_vec->y - t_j * new_vec->x + t_k * new_vec->w + t_w * new_vec->z;
+        cur_vec->w = t_w * new_vec->w - t_i * new_vec->x - t_j * new_vec->y - t_k * new_vec->z;
+    
+        //convert quaternion into rot matrix and store it
+        cur_rot->x->i = (1 - 2 * cur_vec->j * cur_vec->j - 2 * cur_vec->k * cur_vec->k);
+        cur_rot->x->j = (2 * cur_vec->i * cur_vec->j - 2 * cur_vec->k * cur_vec->w);
+        cur_rot->x->k = (2 * cur_vec->i * cur_vec->k + 2 * cur_vec->j * cur_vec->w);
+
+        cur_rot->y->i = (2 * cur_vec->i * cur_vec->j + 2 * cur_vec->k * cur_vec->w);
+        cur_rot->y->j = (1 - 2 * cur_vec->i * cur_vec->i - 2 * cur_vec->k * cur_vec->k);
+        cur_rot->y->k = (2 * cur_vec->j * cur_vec->k - 2 * cur_vec->i * cur_vec->w);
+
+        cur_rot->z->i = (2 * cur_vec->i * cur_vec->k - 2 * cur_vec->j * cur_vec->w);
+        cur_rot->z->j = (2 * cur_vec->j * cur_vec->k + 2 * cur_vec->i * cur_vec->w);
+        cur_rot->z->k = (1 - 2 * cur_vec->i * cur_vec->i - 2 * cur_vec->j * cur_vec->j);
+    }
+    T_fp temp_x = x, temp_y = y, temp_z = z;
+    //do the roation of the vector
+    x = temp_x * cur_rot->x->i + temp_y * cur_rot->x->j + temp_z * cur_rot->x->k;
+    y = temp_x * cur_rot->y->i + temp_y * cur_rot->y->j + temp_z * cur_rot->y->k;
+    z = temp_x * cur_rot->z->i + temp_y * cur_rot->z->j + temp_z * cur_rot->z->k;
+}

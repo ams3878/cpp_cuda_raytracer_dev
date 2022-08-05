@@ -86,34 +86,22 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance,
         QueryPerformanceFrequency(&perf);
         performance_frequency = (float)perf.QuadPart;
     }
-    //read_ply("dump_test.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 0);
+    int model_select = 0;
+    switch(model_select){
+    case 0:
+        //BIG BOY RABBIT
+        read_ply("dump23.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 1);
+        break;
+    case 1:
+        //HUGE DRAGON BOI
+        read_ply("dragon_vrip_mod.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 0);
+        break;
+    case 2:
+        //HUGE BUDDHA BOU
+        read_ply("happy_vrip_mod.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 0);
+        break;
+    }   
 
-    //HUGE DRAGON BOI
-    //read_ply("dragon_vrip_mod.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 0);
-    //HUGE BUDDHA BOU
-    //read_ply("happy_vrip_mod.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 0);
-    //BABy TRIXEL LIST
-    /*
-    read_ply("dump.ply", &points_for_trixels_1, &num_trixels_1, &kd_leaf_list_1, &vertices_for_trixels, &num_trixel_vert, 1);
-    tot_num_trixels += num_trixels_1;
-    num_trixels_2 = tot_num_trixels;
-    read_ply("dump.ply", &points_for_trixels_2, &num_trixels_2, &kd_leaf_list_2, &vertices_for_trixels, &num_trixel_vert, 1);
-    tot_num_trixels += num_trixels_2;
-
-    points_for_trixels = (double*)malloc(sizeof(double) * tot_num_trixels * 9);
-    kd_leaf_list = (kd_leaf_sort*)malloc(sizeof(kd_leaf_sort) * tot_num_trixels);
-
-    memcpy(points_for_trixels, points_for_trixels_1, sizeof(double) * num_trixels_1 * 9);
-    memcpy(points_for_trixels + ((num_trixels_1 -1)* 9), points_for_trixels_2, sizeof(double) * num_trixels_2 * 9);
-
-    memcpy(kd_leaf_list, kd_leaf_list_1, sizeof(kd_leaf_sort) * num_trixels_1);
-    memcpy(kd_leaf_list + num_trixels_1 - 1, kd_leaf_list_2, sizeof(kd_leaf_sort) * num_trixels_2);
-    free(points_for_trixels_1);    free(points_for_trixels_2);    free(kd_leaf_list_1);    free(kd_leaf_list_2);
-    */
-    //read_ply("dump.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 1);
-
-    //BIG BOY RABBIT
-    read_ply("dump23.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert,1);
 
     color_for_trixels.c = (u32*)malloc(sizeof(u32) * tot_num_trixels);
     color_for_trixels.rad = (Color::radiance*)malloc(sizeof(Color::radiance) * tot_num_trixels);
@@ -153,12 +141,11 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance,
 
 
     printf("Total Time to build tree: %f seconds\n", (float)(build_kdtree_end_time.QuadPart - sort_primitives_start_time.QuadPart) / performance_frequency);
+    Object* obj1 = new Object(trixel_list);
+    Object* obj2 = new Object(trixel_list);
 
-
-    main_cam->init_camera_trixel_data(trixel_list, trixel_list->num_trixels);
-    main_cam->init_camera_voxel_data(trixel_list, trixel_list->num_voxels);
-    cudaFree(trixel_list->h_tree.d_nodes);
-
+    main_cam->add_object(obj1);
+   // main_cam->add_object(obj2);
 
 
     //Quaternion s = Quaternion(200000000);
@@ -214,15 +201,19 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance,
             }
             cur_tick = 0;
         }
-        trixel_list->intersect_trixels(main_cam, render_mode);
+
+        obj1->trixel_list->intersect_trixels(main_cam, render_mode);
+        //obj2->trixel_list->intersect_trixels(main_cam, render_mode);
+
         main_cam->color_pixels();
         StretchDIBits(hdc, 0, 0, g_render_res.w, g_render_res.h, 0, 0, g_render_res.w, g_render_res.h, (void*)main_cam->h_mem.h_color.c, &g_bitmap_info, DIB_RGB_COLORS, SRCCOPY);
 
         QueryPerformanceCounter(&frame_end_time);
         delta_time = (float)(frame_end_time.QuadPart - frame_begin_time.QuadPart) / performance_frequency;
         frame_begin_time = frame_end_time;
-        /*
+
         wprintf(L"\x1b[s");
+        printf("Resolution: %d x %d\n", g_render_res.w, g_render_res.h);
         printf("Last Cuda Error: %s\n", cudaGetErrorString(cudaPeekAtLastError()));
         printf("FPS: %f \n", 1 / delta_time);
         printf("CamerPos [x:%f y:%f z:%f] \n", main_cam->o_prop.pos.x, main_cam->o_prop.pos.y, main_cam->o_prop.pos.z);
@@ -230,7 +221,7 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance,
         printf("Camera U [x:%f y:%f z:%f] \n", main_cam->o_prop.u.x, main_cam->o_prop.u.y, main_cam->o_prop.u.z);
         printf("Camera V [x:%f y:%f z:%f] \n", main_cam->o_prop.v.x, main_cam->o_prop.v.y, main_cam->o_prop.v.z);
 
-        wprintf(L"\x1b[u");*/
+        wprintf(L"\x1b[u");
         cur_tick++;
     } 
 

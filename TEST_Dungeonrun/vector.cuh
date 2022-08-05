@@ -29,13 +29,16 @@ template <typename T>
 		z = temp_x * qz.i + temp_y * qz.j + temp_z * qz.k;
 	};
 };
+ /*
+ template<typename T>
+ __device__ VEC4<T>::VEC4(const u8 arbitrary_null_arg) {  };*/
  template<typename T>
  template <typename h_T>
- __device__ void VEC3_CUDA<T>::rotate(h_T* rm, T_uint m_index, T_uint r_index, int reverse) { 
+ __device__ void VEC3_CUDA<T>::device_rotate(h_T* rm, T_uint m_index, int reverse) { 
 	 T temp_x = reverse * x[m_index], temp_y = reverse * y[m_index], temp_z = reverse * z[m_index];
-	 x[m_index] = temp_x * rm->x->i[r_index] + temp_y * rm->x->j[r_index] + temp_z * rm->x->k[r_index];
-	 y[m_index] = temp_x * rm->y->i[r_index] + temp_y * rm->y->j[r_index] + temp_z * rm->y->k[r_index];
-	 z[m_index] = temp_x * rm->z->i[r_index] + temp_y * rm->z->j[r_index] + temp_z * rm->z->k[r_index];
+	 x[m_index] = temp_x * rm->x->i + temp_y * rm->x->j + temp_z * rm->x->k;
+	 y[m_index] = temp_x * rm->y->i + temp_y * rm->y->j + temp_z * rm->y->k;
+	 z[m_index] = temp_x * rm->z->i + temp_y * rm->z->j + temp_z * rm->z->k;
 	 x[m_index] *= reverse;
 	 y[m_index] *= reverse;
 	 z[m_index] *= reverse;
@@ -43,7 +46,7 @@ template <typename T>
 
  template<typename T>
  template <typename h_T>
- __device__ void VEC3<T>::rotate(h_T* rm ,T_uint index) {
+ __device__ void VEC3<T>::device_rotate(h_T* rm ,T_uint index) {
 	 T temp_x = x, temp_y = y, temp_z = z;
 	 x = temp_x * rm->x->i[index] + temp_y * rm->x->j[index] + temp_z * rm->x->k[index];
 	 y = temp_x * rm->y->i[index] + temp_y * rm->y->j[index] + temp_z * rm->y->k[index];
@@ -51,21 +54,30 @@ template <typename T>
  };
  template<typename T>
  template <typename h_T>
- __device__ void VEC4<T>::rotate(h_T qx, h_T qy, h_T qz, T_uint index) {
+ __device__ void VEC4<T>::device_rotate(h_T qx, h_T qy, h_T qz) {
 	 T temp_x = x, temp_y = y, temp_z = z;
-	 x = temp_x * qx->i[index] + temp_y * qx->j[index] + temp_z * qx->k[index];
-	 y = temp_x * qy->i[index] + temp_y * qy->j[index] + temp_z * qy->k[index];
-	 z = temp_x * qz->i[index] + temp_y * qz->j[index] + temp_z * qz->k[index];
+	 x = temp_x * qx->i + temp_y * qx->j + temp_z * qx->k;
+	 y = temp_x * qy->i + temp_y * qy->j + temp_z * qy->k;
+	 z = temp_x * qz->i + temp_y * qz->j + temp_z * qz->k;
  };
+ template <typename T>
+ __device__ void quaternion_mul(VEC4<T>* a, VEC4<T> b) {
+	 T t_i = a->i;	 T t_j = a->j;	 T t_k = a->k;	 T t_w = a->w;
+
+	 a->i = t_j * b.z - t_k * b.y + t_i * b.w + t_w * b.x;
+	 a->j = t_k * b.x - t_i * b.z + t_j * b.w + t_w * b.y;
+	 a->k = t_i * b.y - t_j * b.x + t_k * b.w + t_w * b.z;
+	 a->w = t_w * b.w - t_i * b.x - t_j * b.y - t_k * b.z;
+ }
 
  template <typename T>
- __device__ void quaternion_mul(VEC4_CUDA<T>* a, VEC4_CUDA<T>* b, T_uint i) {
-	 T t_i = a->i[i];	 T t_j = a->j[i];	 T t_k = a->k[i];	 T t_w = a->w[i];
+ __device__ void quaternion_mul(VEC4<T>* a, VEC4<T>* b) {
+	 T t_i = a->i;	 T t_j = a->j;	 T t_k = a->k;	 T t_w = a->w;
 
-	 a->i[i] = t_j * b->z[i] - t_k * b->y[i] + t_i * b->w[i] + t_w * b->x[i];
-	 a->j[i] = t_k * b->x[i] - t_i * b->z[i] + t_j * b->w[i] + t_w * b->y[i];
-	 a->k[i] = t_i * b->y[i] - t_j * b->x[i] + t_k * b->w[i] + t_w * b->z[i];
-	 a->w[i] = t_w * b->w[i] - t_i * b->x[i] - t_j * b->y[i] - t_k * b->z[i];
+	 a->i = t_j * b->z - t_k * b->y + t_i * b->w + t_w * b->x;
+	 a->j = t_k * b->x - t_i * b->z + t_j * b->w + t_w * b->y;
+	 a->k = t_i * b->y - t_j * b->x + t_k * b->w + t_w * b->z;
+	 a->w = t_w * b->w - t_i * b->x - t_j * b->y - t_k * b->z;
  }
 
 

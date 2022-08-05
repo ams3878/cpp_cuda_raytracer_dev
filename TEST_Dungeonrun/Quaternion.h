@@ -5,25 +5,22 @@
 class Quaternion
 {
 private:
-	cudaError_t initialize_CUDA();
+	cudaError_t initialize_CUDA(VEC4<T_fp>* init_x, VEC4<T_fp>* init_y, VEC4<T_fp>* init_z);
 	bool isCUDA;
 
 public:	
-	VEC4_CUDA<VEC4_CUDA<T_fp>>*rot_m, *d_rot_m;
-	u32 size;
-	VEC4_CUDA<T_fp>* vec, *d_vec;
+	VEC4<VEC4<T_fp>*>*rot_m, *d_rot_m;
+	VEC4<T_fp>* vec, *d_vec;
 
 	Quaternion();
-	Quaternion(u32 size);
-	Quaternion(u32 size, int constructor_flags);
+	Quaternion(int constructor_flags);
+	Quaternion(const Quaternion &q);
 	
 	T_fp _i(T_uint index) const;	T_fp _j (T_uint index) const;	T_fp _k(T_uint index) const; 	T_fp _w(T_uint index) const;
-	int _free(int flags);
-
+	cudaError_t set_device_rotation(VEC4<VEC4<T_fp>*>* host_rot_matrix);//only call on device matrixes
 	int set_transformation_matrix_rot();
 	int set_transformation_matrix_tran(VEC4<T_fp> delta);
-	int _memset(VEC4<T_fp>* v);
-	int _memset(T_fp* _w, T_fp* _i, T_fp* _j, T_fp* _k);
-	int _memset(int value);
+
 };
+
 #endif

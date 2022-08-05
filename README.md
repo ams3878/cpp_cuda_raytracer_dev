@@ -9,13 +9,7 @@ Functionality / Algorithms:
     - root(n) avg voxel checks per ray
     
  - BRDF : The most basic phong you could imagine
- - Animation : 
-   - Quaternion Rotation via keypress (current 6 directions) 
-   - Linear / No interpolation since each frame is rendered in real time and incremented is fixed
+ - Animation : Rotation or Translation or Translation Then Rotation. but not rotation first(who knows...)
 
 Metrics
-  - Standford Dragon (800k primitives) ~ 100 (25 at 90%+ pixel coverage) FPS  960 x 540
-
-
-https://user-images.githubusercontent.com/22137697/179344041-96da1a67-7e1a-4c4a-8792-e9d53a0468eb.mp4
-
+  - Standfor Dragon (800k) ~ 150 FPS

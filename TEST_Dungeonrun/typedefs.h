@@ -15,6 +15,7 @@ typedef unsigned long long u64;
 typedef float T_fp;
 typedef u32 T_uint;
 typedef u64 T_luint;
+typedef s32 T_int;
 #define precision_shift 31
 #define HOST_EPSILON 1e-15
 #elif PPP_TAG == 1

@@ -6,6 +6,7 @@
 #include "cuda_runtime.h"
 #include "sort.h"
 #include "Camera.h"
+#include "Object.h"
 #include <stdio.h>
 
 class Trixel;
@@ -45,6 +46,7 @@ class Trixel
 	kd_leaf_sort* sorted_z1_leafs;
 	kd_leaf_sort* indexed_leafs;
 public:
+	u8 object_tag;
 	s64 num_trixels;
 	s64 num_vertices;
 	s64 num_voxels;
@@ -58,7 +60,6 @@ public:
 		}d_edges;
 		Color d_color;
 		VEC3_CUDA<T_fp> d_n;
-
 		VEC3_CUDA<T_fp>** rotate_helper_array;
 		trixel_memory() : d_color(), d_n(), d_edges(), h_p1(), d_p1(), rotate_helper_array(NULL) {}
 	}h_mem;void* d_mem;
@@ -80,7 +81,7 @@ public:
 	}h_tree; void* d_tree;
 	Trixel() : d_tree(NULL), d_mem(NULL), d_points_init_data(NULL), h_tree(), h_mem(), h_points_init_data(NULL),
 		sorted_x0_leafs(NULL), sorted_x1_leafs(NULL), sorted_y0_leafs(NULL), sorted_y1_leafs(NULL), sorted_z0_leafs(NULL), sorted_z1_leafs(NULL),
-		indexed_leafs(NULL), num_trixels(0), num_vertices(0), num_voxels(0) {}
+		indexed_leafs(NULL), num_trixels(0), num_vertices(0), num_voxels(0), object_tag(TRIXEL_OBJECT_TAG) {}
 
 	Trixel(s64 num_t, T_fp* points_data, Color* color_data) : Trixel() {
 		num_trixels = num_t;

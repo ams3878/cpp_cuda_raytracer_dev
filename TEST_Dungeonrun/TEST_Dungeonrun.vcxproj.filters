@@ -25,6 +25,9 @@
     <ClCompile Include="Input.cpp">
       <Filter>Input</Filter>
     </ClCompile>
+    <ClCompile Include="Object.cpp">
+      <Filter>Object</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Camera.h">
@@ -65,6 +68,9 @@
     <ClInclude Include="Input.h">
       <Filter>Input</Filter>
     </ClInclude>
+    <ClInclude Include="Object.h">
+      <Filter>Object</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Camera">
@@ -90,6 +96,9 @@
     </Filter>
     <Filter Include="Input">
       <UniqueIdentifier>{f549e2fc-e761-415b-b73d-e87cf15e407d}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Object">
+      <UniqueIdentifier>{4fd3aaf1-2403-457c-a4cd-422ba0518a0f}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>

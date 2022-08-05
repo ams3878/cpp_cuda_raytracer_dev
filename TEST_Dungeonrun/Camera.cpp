@@ -103,8 +103,8 @@ Camera::Camera(s32 r_w, s32 r_h,
 
 	cudaMalloc((void**)&h_mem.d_rmi.index, sizeof(s64) * f_prop.res.count);
 	h_mem.h_rmi.index = (s64*)malloc(sizeof(s64) * f_prop.res.count);
-
-
+	//**TODO** make quaterion flags readable constants
+	o_prop.quat = Quaternion(3);
 	//This works but i think maybe better way to do this
 	cudaMalloc((void**)&d_mem, sizeof(pixel_memory));
 	cudaMemcpy(d_mem, &h_mem, sizeof(pixel_memory), cudaMemcpyHostToDevice);
@@ -112,8 +112,32 @@ Camera::Camera(s32 r_w, s32 r_h,
 
 	init_camera_device_memory(this);
 };
+cudaError_t Camera::add_object(Object* new_object) {
+	cudaError_t c_err;
+	if (num_objects++ == 0) {
+		object_list = (Object**)malloc(sizeof(Object*));
+		object_list[0] = new_object;
+	}else {
+		object_list = (Object**)realloc(object_list, sizeof(Object*) * num_objects);
+		object_list[num_objects - 1] = new_object;
+	}
 
+	new_object->quat = new Quaternion(o_prop.quat);
+
+	switch (new_object->getTag()) {
+	case TRIXEL_OBJECT_TAG:
+		init_camera_trixel_data(new_object->trixel_list, new_object->trixel_list->num_trixels);
+		c_err = init_camera_voxel_data(new_object->trixel_list, new_object->trixel_list->num_voxels);	}
+		//This free needs moved somewehre else maybe?	
+		 //cudaFree(new_object->trixel_list->h_tree.d_nodes);
+		
+	//transform_camera_voxel_device_memory(this, object_list[0]->trixel_list, &VEC4<T_fp>(o_prop.pos, 1.0f), NULL, TRANSLATE_Z);
+
+	//cudaMemcpy(d_voxels, &h_voxels, sizeof(voxel_memory), cudaMemcpyHostToDevice);
+	return c_err;
+}
 cudaError_t Camera::init_camera_trixel_data(Trixel* t, s64 num_trixels) {
+	
 	cudaMalloc((void**)&h_trixels.d_q.x, sizeof(T_fp) * num_trixels);
 	cudaMalloc((void**)&h_trixels.d_q.y, sizeof(T_fp) * num_trixels);
 	cudaMalloc((void**)&h_trixels.d_q.z, sizeof(T_fp) * num_trixels);
@@ -123,12 +147,11 @@ cudaError_t Camera::init_camera_trixel_data(Trixel* t, s64 num_trixels) {
 	cudaMalloc((void**)&h_trixels.d_t.z, sizeof(T_fp) * num_trixels);
 
 	cudaMalloc((void**)&h_trixels.d_w, sizeof(T_fp) * num_trixels);
-	trixels_list = t;
 
 
 	cudaMalloc((void**)&(d_trixels), sizeof(trixel_memory));
 	cudaMemcpy(d_trixels, &(h_trixels), sizeof(trixel_memory), cudaMemcpyHostToDevice);
-	return init_camera_trixel_device_memory(trixels_list, this);
+	return init_camera_trixel_device_memory(t, this);
 }
 
 cudaError_t Camera::init_camera_voxel_data(Trixel* t, s64 num_voxels) {
@@ -165,25 +188,10 @@ cudaError_t Camera::init_camera_voxel_data(Trixel* t, s64 num_voxels) {
 	cudaMalloc((void**)&h_voxels.cut_flags, sizeof(voxel_memory::flag_tag) * num_voxels);
 
 	h_voxels.h_Bo = (voxel_memory::voxel_vector*) malloc(sizeof(voxel_memory::voxel_vector) * num_voxels);
-	h_voxels.q = new Quaternion(num_voxels, 1);
-	h_voxels.next_rotation = new Quaternion(1, 1);
+	//h_voxels.q = new Quaternion(3);
+	h_voxels.next_rotation = new Quaternion(3);
 
-	VEC4_CUDA<T_fp>* q_vec = new VEC4_CUDA<T_fp>(4);
 
-	for (int iii = 0; iii < 4; iii++) {
-		q_vec->complex.i[iii] = 0.0;
-		q_vec->complex.j[iii] = 0.0;
-		q_vec->complex.k[iii] = 0.0;
-		q_vec->w[iii] = 1.0;
-	}
-
-	cudaMemcpy(h_voxels.q->vec->i, q_vec->i, sizeof(T_fp), cudaMemcpyHostToDevice);
-	cudaMemcpy(h_voxels.q->vec->j, q_vec->j, sizeof(T_fp), cudaMemcpyHostToDevice);
-	cudaMemcpy(h_voxels.q->vec->k, q_vec->k, sizeof(T_fp), cudaMemcpyHostToDevice);
-	cudaMemcpy(h_voxels.q->vec->w, q_vec->w, sizeof(T_fp), cudaMemcpyHostToDevice);
-	delete(q_vec);
-	cudaMalloc((void**)&h_voxels.d_q, sizeof(Quaternion));
-	cudaMemcpy(h_voxels.d_q, h_voxels.q, sizeof(Quaternion), cudaMemcpyHostToDevice);
 	cudaMalloc((void**)&h_voxels.d_Bo, sizeof(voxel_memory::voxel_vector) * num_voxels);
 
 	cudaMalloc((void**)&h_voxels.d_voxel_index_queue, sizeof(s32) * f_prop.res.count * (s32)ceil(log2((double)num_voxels)));
@@ -192,7 +200,7 @@ cudaError_t Camera::init_camera_voxel_data(Trixel* t, s64 num_voxels) {
 
 	cudaMalloc((void**)&(d_voxels), sizeof(voxel_memory));
 	cudaMemcpy(d_voxels, &(h_voxels), sizeof(voxel_memory), cudaMemcpyHostToDevice);
-	cuda_err = init_camera_voxel_device_memory(trixels_list, this);
+	cuda_err = init_camera_voxel_device_memory(t, this);
 	return cuda_err;
 }
 //**TODO** right now this just does ALL primitives, change to select primitives
@@ -207,7 +215,8 @@ cudaError_t Camera::transform(Input* input, volatile u8 transform_select) {
 	case TRANSLATE_X:
 	case ROTATE_TRI_PY:
 	case ROTATE_TRI_NY:
-		cuda_err = transform_camera_voxel_device_memory(this, trixels_list, tv, q, transform_select);
+		//**TODO** change from firs to arbitrary
+		cuda_err = transform_camera_voxel_device_memory(this, object_list[0]->trixel_list, tv, q, transform_select);
 		break;
 	};
 	return cuda_err;

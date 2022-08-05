@@ -9,8 +9,11 @@
 #include "Quaternion.h"
 class Trixel;
 class Input;
+class Object;
 class Camera
 {
+	cudaError_t init_camera_trixel_data(Trixel* t, s64 num_trixels);
+	cudaError_t init_camera_voxel_data(Trixel* t, s64 num_voxels);
 public:
 
 	//Camera Properties
@@ -32,7 +35,7 @@ public:
 		// u = n cross v                    u_mod = u / pixel width
 		VEC3<T_fp> n, v, u, n_mod, v_mod, u_mod;
 		VEC3<T_fp>** rotation_help_array;
-
+		Quaternion quat;
 		orientation_properties() : n(), v(), u(), n_mod(), v_mod(), u_mod(), up(), la(), pos(), rotation_help_array(NULL) {}
 	}o_prop;
 
@@ -51,7 +54,8 @@ public:
 		struct intersection_object_index { s64* index; }d_rmi, h_rmi;//index into list of triangles
 		pixel_memory() : d_rmi(), h_rmi(), rmd(), inv_rmd(), sign_rmd(), pnt(), norm(), d_dist(), h_color(), d_color(), rad() {}
 	}h_mem, *d_mem;
-	Trixel* trixels_list = NULL;
+	Object** object_list = NULL;
+	T_uint num_objects = 0;
 	//struct voxel_traverse_list { u64 ray_index, node_tri; s32 node_cur, node_left, node_right; } *h_next_voxels_first, * h_next_voxels_second, * d_next_voxels_first, * d_next_voxels_second,*h_trixel_ray_check_list, *d_trixel_ray_check_list;
 	//Recalcuate on Camera position move
 	struct trixel_memory {
@@ -64,7 +68,7 @@ public:
 			T_fp t0x; T_fp t0y; T_fp t0z;
 			T_fp t1x; T_fp t1y; T_fp t1z;
 		}*d_Bo,*h_Bo;
-		Quaternion* q,*d_q, * next_rotation;
+		Quaternion* next_rotation;
 		T_fp* s1, *s2;
 		u8* is_leaf;
 		VEC4<T_fp> n,u,v,cur_transform, cur_rotation,init_face, obj_center;
@@ -83,11 +87,7 @@ public:
 		T_fp la_x, T_fp la_y, T_fp la_z,
 		T_fp up_x, T_fp up_y, T_fp up_z
 	);
-
-	cudaError_t init_camera_trixel_data(Trixel* t, s64 num_trixels);
-
-	cudaError_t init_camera_voxel_data(Trixel* t, s64 num_voxels);
-	
+	cudaError_t add_object(Object* new_object);
 	//ALSO REMBER IF YOU WANT TO DO THIS FOR PRIMITVIES MAKE SURE TO CALL TRANSFORM ON ALL CAMERAS, or else you will move the camera adn not the object
 	cudaError_t transform(Input* input, u8 transform_select);
 

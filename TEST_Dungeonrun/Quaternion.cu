@@ -1,73 +1,56 @@
 #include "framework.h"
 #include "framework.cuh"
 
-
-__global__ void init_rotation_matrix(VEC4_CUDA<VEC4_CUDA<T_fp>>* r, T_fp* rx, T_fp* ry, T_fp* rz, T_fp* rw, int sw, T_uint max_threads) {
+__global__ void set_rotation_matrix(VEC4<VEC4<T_fp>*>* r, VEC4<T_fp> rx, VEC4<T_fp> ry, VEC4<T_fp> rz,  T_uint max_threads) {
 	u64 voxel_index = (u64)threadIdx.x + ((u64)blockIdx.x * blockDim.x);
 	if (voxel_index > max_threads) { return; }
-	switch (sw) {
-	case 0:
-		r->x->i = rx;
-		r->x->j = ry;
-		r->x->k = rz;
-		r->x->w = rw;
-		break;
-	case 1:
-		r->y->i = rx;
-		r->y->j = ry;
-		r->y->k = rz;
-		r->y->w = rw;
-		break;
-	case 2:
-		r->z->i = rx;
-		r->z->j = ry;
-		r->z->k = rz;
-		r->z->w = rw;
-		break;
-	case 3:
-		r->x->i[voxel_index] = (T_fp)1.0; r->x->j[voxel_index] = (T_fp)0.0;	r->x->k[voxel_index] = (T_fp)0.0; r->x->w[voxel_index] = (T_fp)0.0;
-		r->y->i[voxel_index] = (T_fp)0.0; r->y->j[voxel_index] = (T_fp)1.0;	r->y->k[voxel_index] = (T_fp)0.0; r->y->w[voxel_index] = (T_fp)0.0;
-		r->z->i[voxel_index] = (T_fp)0.0; r->z->j[voxel_index] = (T_fp)0.0;	r->z->k[voxel_index] = (T_fp)1.0; r->z->w[voxel_index] = (T_fp)0.0;
-		//r->w->i[voxel_index] = (T_fp)0.0; r->w->j[voxel_index] = (T_fp)0.0;	r->w->k[voxel_index] = (T_fp)0.0; r->w->w[voxel_index] = (T_fp)1.0;
-	}
+	*r->x = rx;
+	*r->y = ry;
+	*r->z = rz;
 }
 
-cudaError_t Quaternion::initialize_CUDA() {
-	vec = new VEC4_CUDA<T_fp>();
-	cudaMalloc((void**)&vec->i, sizeof(T_fp) * size);
-	cudaMalloc((void**)&vec->j, sizeof(T_fp) * size);
-	cudaMalloc((void**)&vec->k, sizeof(T_fp) * size);
-	cudaMalloc((void**)&vec->w, sizeof(T_fp) * size);
-	cudaMalloc((void**)&d_vec, sizeof(VEC4_CUDA<T_fp>));
-	cudaMemcpy(d_vec, vec, sizeof(VEC4_CUDA<T_fp>), cudaMemcpyHostToDevice);
 
-	rot_m = new VEC4_CUDA<VEC4_CUDA<T_fp>>();
+__global__ void init_rotation_matrix(VEC4<VEC4<T_fp>*>* r, VEC4<T_fp>* rx, VEC4<T_fp>* ry, VEC4<T_fp>* rz,  T_uint max_threads) {
+	u64 voxel_index = (u64)threadIdx.x + ((u64)blockIdx.x * blockDim.x);
+	if (voxel_index > max_threads) { return; }
+	r->x = rx;
+	r->y = ry;
+	r->z = rz;
 
-	cudaMalloc((void**)&d_rot_m, sizeof(VEC4_CUDA<VEC4_CUDA<T_fp>>));
+}
+cudaError_t Quaternion::set_device_rotation(VEC4<VEC4<T_fp>*>* host_rot_matrix){
+	cudaError_t cudaStatus;
+	set_rotation_matrix << < 1, 1 >> > (d_rot_m, *host_rot_matrix->x, *host_rot_matrix->y, *host_rot_matrix->z, 1);
+	return cudaPeekAtLastError();
 
-	cudaMalloc((void**)&rot_m->x, sizeof(VEC4_CUDA<T_fp>));
-	cudaMalloc((void**)&rot_m->y, sizeof(VEC4_CUDA<T_fp>));
-	cudaMalloc((void**)&rot_m->z, sizeof(VEC4_CUDA<T_fp>));
-	cudaMalloc((void**)&rot_m->w, sizeof(VEC4_CUDA<T_fp>));
+}
 
-	cudaMemcpy(d_rot_m, rot_m, sizeof(VEC4_CUDA<VEC4_CUDA<T_fp>>), cudaMemcpyHostToDevice);
+cudaError_t Quaternion::initialize_CUDA(VEC4<T_fp>* init_x, VEC4<T_fp>* init_y, VEC4<T_fp>* init_z) {
+	cudaError_t cudaStatus;
+	cudaMalloc((void**)&d_vec, sizeof(VEC4<T_fp>));	
+	cudaMemcpy(d_vec, vec, sizeof(VEC4<T_fp>), cudaMemcpyHostToDevice);
+	
+	VEC4<VEC4<T_fp>*>* t_rot_m = new VEC4<VEC4<T_fp>*>();
 
-	rot_m->x = new VEC4_CUDA<T_fp>();
-	rot_m->y = new VEC4_CUDA<T_fp>();
-	rot_m->z = new VEC4_CUDA<T_fp>();
-	//rot_m->w = new VEC4_CUDA<T_fp>();
+	cudaMalloc((void**)&d_rot_m, sizeof(VEC4<VEC4<T_fp>*>));
 
-	cudaMalloc((void**)&rot_m->x->i, sizeof(T_fp) * size);	cudaMalloc((void**)&rot_m->x->j, sizeof(T_fp) * size);	cudaMalloc((void**)&rot_m->x->k, sizeof(T_fp) * size); cudaMalloc((void**)&rot_m->x->w, sizeof(T_fp) * size);
-	init_rotation_matrix << < 1, 1 >> > (d_rot_m, rot_m->x->i, rot_m->x->j, rot_m->x->k, rot_m->x->w, 0, 1);
-	delete(rot_m->x);
-	cudaMalloc((void**)&rot_m->y->i, sizeof(T_fp) * size);	cudaMalloc((void**)&rot_m->y->j, sizeof(T_fp) * size);	cudaMalloc((void**)&rot_m->y->k, sizeof(T_fp) * size); cudaMalloc((void**)&rot_m->y->w, sizeof(T_fp) * size);
-	init_rotation_matrix << < 1, 1 >> > (d_rot_m, rot_m->y->i, rot_m->y->j, rot_m->y->k, rot_m->y->w, 1, 1);
-	delete(rot_m->y);
-	cudaMalloc((void**)&rot_m->z->i, sizeof(T_fp) * size);	cudaMalloc((void**)&rot_m->z->j, sizeof(T_fp) * size);	cudaMalloc((void**)&rot_m->z->k, sizeof(T_fp) * size); cudaMalloc((void**)&rot_m->z->w, sizeof(T_fp) * size);
-	init_rotation_matrix << < 1, 1 >> > (d_rot_m, rot_m->z->i, rot_m->z->j, rot_m->z->k, rot_m->z->w, 2, 1);
-	delete(rot_m->z);
-	delete(rot_m);
-	init_rotation_matrix << < 1 + (size / 512), 512 >> > (d_rot_m, 0, 0, 0, 0,3, size);
+	cudaMalloc((void**)&t_rot_m->x, sizeof(VEC4<T_fp>));
+	cudaMalloc((void**)&t_rot_m->y, sizeof(VEC4<T_fp>));
+	cudaMalloc((void**)&t_rot_m->z, sizeof(VEC4<T_fp>));
+	cudaMalloc((void**)&t_rot_m->w, sizeof(VEC4<T_fp>));
+
+	cudaMemcpy(d_rot_m, t_rot_m, sizeof(VEC4<VEC4<T_fp>*>), cudaMemcpyHostToDevice);
+	cudaStatus = cudaGetLastError();
+	if (cudaStatus != cudaSuccess) {
+		printf("init_QUATERNION launch failed: %s\n", cudaGetErrorString(cudaStatus));
+	}
+	set_rotation_matrix << < 1, 1 >> > (d_rot_m, *init_x, *init_y, *init_z, 1);
+
+	cudaStatus = cudaGetLastError();
+	if (cudaStatus != cudaSuccess) {
+		printf("set_QUATERNION launch failed: %s\n", cudaGetErrorString(cudaStatus));
+	}
+	delete(t_rot_m);
 
 	return cudaPeekAtLastError();
 }
