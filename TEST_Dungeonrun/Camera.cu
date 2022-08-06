@@ -261,21 +261,23 @@ cudaError_t transform_camera_voxel_device_memory(Camera* c, Trixel* t, VEC4<T_fp
             6 - negate init_face then rotate by rot_m
             7 - n = the negative of the rotated init_face
         */
-        cudaMemcpy(&c->h_voxels.cur_transform, &-*tv, sizeof(VEC4<T_fp>), cudaMemcpyHostToHost);
-
-        (c->h_voxels.cur_transform).rotate(c->object_list[0]->quat->rot_m, c->object_list[0]->quat->vec, (VEC4<T_fp>*)NULL, 0);
-
-        c->object_list[0]->quat->rot_m->x->w += c->h_voxels.cur_transform.d * c->h_voxels.cur_transform.x;// -tv->d  * tv->x;
-        c->object_list[0]->quat->rot_m->y->w += c->h_voxels.cur_transform.d * c->h_voxels.cur_transform.y;//tv->y * tv->d;
-        c->object_list[0]->quat->rot_m->z->w += c->h_voxels.cur_transform.d * c->h_voxels.cur_transform.z;//tv->z * tv->d;
-    
-        update_voxel_transform_m_translate_cuda << < 1, 1 >> > (c->h_voxels.cur_transform, c->object_list[0]->quat->d_rot_m, 1);
-
+        //maybe we just destroy tv here....
+        //cudaMemcpy(&c->h_voxels.cur_transform, &-*tv, sizeof(VEC4<T_fp>), cudaMemcpyHostToHost);
         c->h_voxels.init_face -= *tv;
+
+        (*tv).rotate(c->object_list[0]->quat->rot_m, c->object_list[0]->quat->vec, (VEC4<T_fp>*)NULL, -1);
+
+        c->object_list[0]->quat->rot_m->x->w += tv->d * tv->x;// -tv->d  * tv->x;
+        c->object_list[0]->quat->rot_m->y->w += tv->d * tv->y;//tv->y * tv->d;
+        c->object_list[0]->quat->rot_m->z->w += tv->d * tv->z;//tv->z * tv->d;
+    
+        update_voxel_transform_m_translate_cuda << < 1, 1 >> > (*tv, c->object_list[0]->quat->d_rot_m, 1);
+
+        
         normalize_Vector(&c->h_voxels.init_face);
-        cudaMemcpy(&c->h_voxels.cur_transform, &-c->h_voxels.init_face, sizeof(VEC4<T_fp>), cudaMemcpyHostToHost);
-        (c->h_voxels.cur_transform).rotate(c->object_list[0]->quat->rot_m, c->object_list[0]->quat->vec, (VEC4<T_fp>*)NULL, 0);   
-        c->h_voxels.n = -c->h_voxels.cur_transform;
+        cudaMemcpy(&c->h_voxels.n, &c->h_voxels.init_face, sizeof(VEC4<T_fp>), cudaMemcpyHostToHost);
+        (c->h_voxels.n).rotate(c->object_list[0]->quat->rot_m, c->object_list[0]->quat->vec, (VEC4<T_fp>*)NULL, -1);
+        c->h_voxels.n.negate();
 
         break;
     case ROTATE_TRI_PY:
@@ -291,11 +293,12 @@ cudaError_t transform_camera_voxel_device_memory(Camera* c, Trixel* t, VEC4<T_fp
             8 - Normatlize cur transform
             9 - set new n to negative of cur trasnsform
         */
-        cudaMemcpy(&c->h_voxels.cur_transform, &-c->h_voxels.init_face, sizeof(VEC4<T_fp>), cudaMemcpyHostToHost);
+        cudaMemcpy(&c->h_voxels.cur_transform, &c->h_voxels.init_face, sizeof(VEC4<T_fp>), cudaMemcpyHostToHost);
 
-        (c->h_voxels.cur_transform).rotate(c->object_list[0]->quat->rot_m, c->object_list[0]->quat->vec, q->vec, 0);
+        (c->h_voxels.cur_transform).rotate(c->object_list[0]->quat->rot_m, c->object_list[0]->quat->vec, q->vec, -1);
 
         c->object_list[0]->quat->set_device_rotation(c->object_list[0]->quat->rot_m);
+
         c->h_voxels.cur_transform += c->h_voxels.n;
 
         c->object_list[0]->quat->rot_m->x->w -= c->h_voxels.cur_transform.x * c->h_voxels.cur_transform.d;
@@ -304,11 +307,9 @@ cudaError_t transform_camera_voxel_device_memory(Camera* c, Trixel* t, VEC4<T_fp
         update_voxel_transform_m_translate_cuda << < 1, 1 >> > (c->h_voxels.cur_transform, c->object_list[0]->quat->d_rot_m, -1);
 
         c->h_voxels.cur_transform -= c->h_voxels.n;
-        
-        normalize_Vector(&c->h_voxels.cur_transform);
-
-        cudaMemcpy(&c->h_voxels.n, &-c->h_voxels.cur_transform, sizeof(VEC4<T_fp>), cudaMemcpyHostToHost);
-
+        cudaMemcpy(&c->h_voxels.n, &c->h_voxels.cur_transform, sizeof(VEC4<T_fp>), cudaMemcpyHostToHost);
+        normalize_Vector(&c->h_voxels.n);
+        c->h_voxels.n.negate();
 
         break;
     }
@@ -321,12 +322,6 @@ cudaError_t transform_camera_voxel_device_memory(Camera* c, Trixel* t, VEC4<T_fp
 __global__ void rotate_cam_mem_cuda(Camera::pixel_memory* m, VEC4<VEC4<T_fp>*>* rot_m, int offset, u64 max_threads) {
     u64 i = (u64)threadIdx.x + ((u64)blockIdx.x * blockDim.x);
     if (i >= max_threads) { return; }
-    T_fp temp_x = m->rmd.x[i];	T_fp temp_y = m->rmd.y[i];	T_fp temp_z = m->rmd.z[i];
-
-   // m->rmd.x[i] = rot_m[0 + offset] * temp_x + rot_m[1 + offset] * temp_y + rot_m[2 + offset] * temp_z;
-   // m->rmd.y[i] = rot_m[3 + offset] * temp_x + rot_m[4 + offset] * temp_y + rot_m[5 + offset] * temp_z;
-  //  m->rmd.z[i] = rot_m[6 + offset] * temp_x + rot_m[7 + offset] * temp_y + rot_m[8 + offset] * temp_z;
-
 
     m->inv_rmd.x[i] = 1 / m->rmd.x[i];    m->inv_rmd.y[i] = 1 / m->rmd.y[i];    m->inv_rmd.z[i] = 1 / m->rmd.z[i];
     m->sign_rmd.x[i] = ((T_uint*)m->rmd.x)[i] >> precision_shift;
@@ -336,17 +331,6 @@ __global__ void rotate_cam_mem_cuda(Camera::pixel_memory* m, VEC4<VEC4<T_fp>*>* 
 cudaError_t Camera::rotate(Quaternion* q, int offset)
 {
     cudaError_t cudaStatus;
-    o_prop.rotation_help_array[0] = &o_prop.n;
-    o_prop.rotation_help_array[1] = &o_prop.u;
-    o_prop.rotation_help_array[2] = &o_prop.v;
-    T_fp temp_x , temp_y ,temp_z;
-    for (int i = 0; i < 3; i++) {
-        temp_x = o_prop.rotation_help_array[i]->x;	 temp_y = o_prop.rotation_help_array[i]->y;	 temp_z = o_prop.rotation_help_array[i]->z;
-
-        //o_prop.rotation_help_array[i]->x = q->rot_m[0 + offset] * temp_x + q->rot_m[1 + offset] * temp_y + q->rot_m[2 + offset] * temp_z;
-       // o_prop.rotation_help_array[i]->y = q->rot_m[3 + offset] * temp_x + q->rot_m[4 + offset] * temp_y + q->rot_m[5 + offset] * temp_z;
-       // o_prop.rotation_help_array[i]->z = q->rot_m[6 + offset] * temp_x + q->rot_m[7 + offset] * temp_y + q->rot_m[8 + offset] * temp_z;
-    }
 
     
     rotate_cam_mem_cuda << < 1 + ((u32)f_prop.res.count / BLOCK_SIZE), BLOCK_SIZE >> > (

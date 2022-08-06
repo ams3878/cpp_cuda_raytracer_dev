@@ -19,7 +19,6 @@ __global__ void init_rotation_matrix(VEC4<VEC4<T_fp>*>* r, VEC4<T_fp>* rx, VEC4<
 
 }
 cudaError_t Quaternion::set_device_rotation(VEC4<VEC4<T_fp>*>* host_rot_matrix){
-	cudaError_t cudaStatus;
 	set_rotation_matrix << < 1, 1 >> > (d_rot_m, *host_rot_matrix->x, *host_rot_matrix->y, *host_rot_matrix->z, 1);
 	return cudaPeekAtLastError();
 

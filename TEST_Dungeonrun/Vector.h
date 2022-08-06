@@ -42,24 +42,6 @@
       void device_rotate(h_T* rotation_matrix, T_uint m_index,  int reverse); //-1 to reverse 1 to not everything else underfined
   };
   template <typename T>
-  struct VEC4_CUDA : VEC3_CUDA<T>{
-      union { T* w; T* t; T* dt; T* d; };
-      VEC3_CUDA complex;
-      VEC4_CUDA() : VEC3_CUDA<T>(), w(NULL), complex() {
-          complex.x = x;
-          complex.y = y;
-          complex.z = z;
-      };
-      VEC4_CUDA(s64 s) : VEC3_CUDA<T>(s) {
-          w = (T*)malloc(sizeof(T) * s);
-          //w[0] = (T)1.0;
-          complex.x = x;
-          complex.y = y;
-          complex.z = z;
-      };
-
-  };
-  template <typename T>
   struct VEC3 {
       union { T x; T r; T i; T dx; }; union { T y; T g; T j; T dy; }; union { T z; T b; T k; T dz; };
       VEC3() : x((T)0), y((T)0), z((T)0) {};
@@ -114,6 +96,7 @@
           z = (z * w) + (rhs.z * rhs.w);
           w = (T)1.0;
       };
+      void negate() { x = -x; y = -y; z = -z; }
       VEC4<T> operator-() {
           return VEC4<T>(-x, -y, -z, w);
       };
@@ -125,21 +108,7 @@
       };
   };
 
-  template <typename T>
-  T vector_norm(T scalor) {
-      T invrs_sqrt = scalor;
-      T invrs_sqrt_half = 0.5 * invrs_sqrt;
-      union { T x; s64 i; } u;
-      u.x = invrs_sqrt_half;
-     // u.i = typeid(T) == typeid(float) ? 0x5f375a86 - (u.i >> 1) : 0x5FE6EB50C7B537A9 - (u.i >> 1);
-      u.i = 0x5f375a86 - (u.i >> 1);
-      /* The next line can be repeated any number of times to increase accuracy */
-      for (int i = 0; i < 8; i++) {
-          u.x = u.x * (1.5f - invrs_sqrt_half * u.x * u.x);
-      }
-      //invrs_sqrt = 
-      return u.x;
-  }
+  float vector_norm(float scalor);
   template <typename T>
   void normalize_Vector(VEC4<T>* v) {//both v and nv must already be intialized, if both same in place normalize
       T s = v->x * v->x + v->y * v->y + v->z * v->z;//this cant be negative     
@@ -165,6 +134,7 @@
       T s = vx * vx + vy * vy + vz * vz ;//this cant be negative     
       s = vector_norm(s);
       T* temp = (T*)malloc(sizeof(T) * 4);
+      if (!temp) { return NULL; }
       temp[0] = vx * s;
       temp[1] = vy * s;
       temp[2] = vz * s;

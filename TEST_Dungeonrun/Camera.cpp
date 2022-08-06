@@ -108,17 +108,20 @@ Camera::Camera(s32 r_w, s32 r_h,
 	//This works but i think maybe better way to do this
 	cudaMalloc((void**)&d_mem, sizeof(pixel_memory));
 	cudaMemcpy(d_mem, &h_mem, sizeof(pixel_memory), cudaMemcpyHostToDevice);
-
+	d_voxels = NULL;
 
 	init_camera_device_memory(this);
 };
 cudaError_t Camera::add_object(Object* new_object) {
-	cudaError_t c_err;
+	cudaError_t c_err = cudaPeekAtLastError();
 	if (num_objects++ == 0) {
 		object_list = (Object**)malloc(sizeof(Object*));
+		if (!object_list) { return c_err; }
 		object_list[0] = new_object;
 	}else {
+		void* temp = (void*)object_list;
 		object_list = (Object**)realloc(object_list, sizeof(Object*) * num_objects);
+		if (!object_list) { free(temp); return c_err; }
 		object_list[num_objects - 1] = new_object;
 	}
 
@@ -128,12 +131,7 @@ cudaError_t Camera::add_object(Object* new_object) {
 	case TRIXEL_OBJECT_TAG:
 		init_camera_trixel_data(new_object->trixel_list, new_object->trixel_list->num_trixels);
 		c_err = init_camera_voxel_data(new_object->trixel_list, new_object->trixel_list->num_voxels);	}
-		//This free needs moved somewehre else maybe?	
-		 //cudaFree(new_object->trixel_list->h_tree.d_nodes);
-		
-	//transform_camera_voxel_device_memory(this, object_list[0]->trixel_list, &VEC4<T_fp>(o_prop.pos, 1.0f), NULL, TRANSLATE_Z);
 
-	//cudaMemcpy(d_voxels, &h_voxels, sizeof(voxel_memory), cudaMemcpyHostToDevice);
 	return c_err;
 }
 cudaError_t Camera::init_camera_trixel_data(Trixel* t, s64 num_trixels) {
@@ -187,9 +185,6 @@ cudaError_t Camera::init_camera_voxel_data(Trixel* t, s64 num_voxels) {
 
 	cudaMalloc((void**)&h_voxels.cut_flags, sizeof(voxel_memory::flag_tag) * num_voxels);
 
-	h_voxels.h_Bo = (voxel_memory::voxel_vector*) malloc(sizeof(voxel_memory::voxel_vector) * num_voxels);
-	//h_voxels.q = new Quaternion(3);
-	h_voxels.next_rotation = new Quaternion(3);
 
 
 	cudaMalloc((void**)&h_voxels.d_Bo, sizeof(voxel_memory::voxel_vector) * num_voxels);
@@ -208,7 +203,7 @@ cudaError_t Camera::init_camera_voxel_data(Trixel* t, s64 num_voxels) {
 cudaError_t Camera::transform(Input* input, volatile u8 transform_select) {
 	VEC4<T_fp>* tv = input->t_vec;
 	Quaternion* q = input->t_quat;
-	cudaError_t cuda_err;
+	cudaError_t cuda_err = cudaPeekAtLastError();
 	switch (transform_select) {
 	case TRANSLATE_XYZ:	
 	case TRANSLATE_Z:

@@ -67,8 +67,7 @@ public:
 		struct voxel_vector {			
 			T_fp t0x; T_fp t0y; T_fp t0z;
 			T_fp t1x; T_fp t1y; T_fp t1z;
-		}*d_Bo,*h_Bo;
-		Quaternion* next_rotation;
+		}*d_Bo;
 		T_fp* s1, *s2;
 		u8* is_leaf;
 		VEC4<T_fp> n,u,v,cur_transform, cur_rotation,init_face, obj_center;
@@ -79,7 +78,7 @@ public:
 		struct flag_tag{ u8 x; u8 y; u8 z; }*cut_flags;
 		s64 num_voxels;
 		voxel_memory() : d_Bo(), s1(NULL), s2(NULL), is_leaf(0), children(NULL), d_voxel_index_queue(NULL),index_queue_offset(0),cut_flags(NULL),num_voxels(0) {}
-	}h_voxels, *d_voxels;
+	}h_voxels, *d_voxels = NULL;
 
 	Camera(s32 r_w, s32 r_h,
 		T_fp f_w, T_fp f_h, T_fp fclen,

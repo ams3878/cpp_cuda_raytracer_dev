@@ -67,13 +67,13 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance,
     g_render_res.ar = g_window_res.ar;
 
     Camera* main_cam = new Camera(g_render_res.w, g_render_res.h, // res_w, res_h
-        g_render_res.ar * .024, .024, .055, // f_w, f_h, focal_len
-       0.0, 0.10, 1.0, // position
-        0.00, 0.100, 0.00, // look at
-        0.0, 1.0, 0.0// up
+        g_render_res.ar * (T_fp).024, (T_fp).024, (T_fp).055, // f_w, f_h, focal_len
+        (T_fp)0.0, (T_fp)0.10, (T_fp)-1.0, // position
+        (T_fp)0.00, (T_fp)0.100, (T_fp)0.00, // look at
+        (T_fp)0.0, (T_fp)1.0, (T_fp)0.0// up
     );
-    T_fp* points_for_trixels = 0, *points_for_trixels_1 = 0, * points_for_trixels_2 = 0;
-    kd_leaf_sort* kd_leaf_list = 0, *kd_leaf_list_1 = 0, * kd_leaf_list_2 = 0;
+    T_fp* points_for_trixels = NULL;
+    kd_leaf_sort* kd_leaf_list = NULL;
     kd_vertex* vertices_for_trixels;
     Color color_for_trixels;
     T_uint num_trixels_1 = 0, num_trixels_2 = 0, num_trixel_vert = 0, tot_num_trixels = 0;
@@ -86,7 +86,7 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance,
         QueryPerformanceFrequency(&perf);
         performance_frequency = (float)perf.QuadPart;
     }
-    int model_select = 0;
+    int model_select = 1;
     switch(model_select){
     case 0:
         //BIG BOY RABBIT
@@ -105,11 +105,11 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance,
 
     color_for_trixels.c = (u32*)malloc(sizeof(u32) * tot_num_trixels);
     color_for_trixels.rad = (Color::radiance*)malloc(sizeof(Color::radiance) * tot_num_trixels);
-
+    if (!color_for_trixels.rad){ return NULL; }
     for (T_uint trixel_index = 0; trixel_index < tot_num_trixels; trixel_index++) {
         color_for_trixels.rad[trixel_index].r = (T_fp).1;
-        color_for_trixels.rad[trixel_index].g = (T_fp).4;
-        color_for_trixels.rad[trixel_index].b = (T_fp).8;
+        color_for_trixels.rad[trixel_index].g = (T_fp).55;
+        color_for_trixels.rad[trixel_index].b = (T_fp).20;
     }
     //**TODO** make a timing macro
     LARGE_INTEGER read_scene_end_time;
@@ -176,7 +176,7 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance,
                 FreeConsole();
             }
             if (is_click_hold(BUTTON_R)) {
-                (*g_input).set_quat(0.0, 0.09950371902099893, 0.0, 0.9950371902099893);
+                (*g_input).set_quat((T_fp)0.0, (T_fp)0.09950371902099893, (T_fp)0.0, (T_fp)0.9950371902099893);
                 main_cam->transform(g_input, ROTATE_TRI_PY);
             }
             if (is_click_hold(BUTTON_W)) {
@@ -196,7 +196,7 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance,
                 main_cam->transform(g_input, TRANSLATE_X);    
             }
             if (is_click_hold(BUTTON_T)) {
-                (*g_input).set_quat(0.0, -0.09950371902099893, 0.0, 0.9950371902099893);
+                (*g_input).set_quat((T_fp)0.0, (T_fp)-0.09950371902099893, (T_fp)0.0, (T_fp)0.9950371902099893);
                 main_cam->transform(g_input, ROTATE_TRI_NY);
             }
             cur_tick = 0;

@@ -383,6 +383,7 @@ public:
 		return 0;
 	}
 	int set_sorted_voxels(kd_leaf_sort* voxel_list, T_uint num_leaf_voxels) {
+		if (num_leaf_voxels == 0) { printf( "voxels are zero gtfo" ); return 0; }
 
 		indexed_leafs = (kd_leaf_sort*)malloc(sizeof(kd_leaf_sort) * num_leaf_voxels);
 		cudaMemcpy(indexed_leafs, voxel_list, sizeof(kd_leaf_sort) * num_leaf_voxels, cudaMemcpyHostToHost);
@@ -391,26 +392,37 @@ public:
 		kd_leaf_sort* w_list = (kd_leaf_sort*)malloc(sizeof(kd_leaf_sort) * num_leaf_voxels);
 		
 		sorted_x0_leafs = (kd_leaf_sort*)malloc(sizeof(kd_leaf_sort) * num_leaf_voxels);
-		sorted_x1_leafs = (kd_leaf_sort*)malloc(sizeof(kd_leaf_sort) * num_leaf_voxels);
 		cudaMemcpy(sorted_x0_leafs, voxel_list, sizeof(kd_leaf_sort) * num_leaf_voxels, cudaMemcpyHostToHost);
-		cudaMemcpy(sorted_x1_leafs, voxel_list, sizeof(kd_leaf_sort) * num_leaf_voxels, cudaMemcpyHostToHost);
 		merge_sort(sorted_x0_leafs, w_list, num_leaf_voxels, SORT_X0_TAG);
+		if (!sorted_x0_leafs) { printf("malloc fail"); return 0; }
+
+		sorted_x1_leafs = (kd_leaf_sort*)malloc(sizeof(kd_leaf_sort) * num_leaf_voxels);
+		if (!sorted_x1_leafs) { printf("malloc fail"); return 0; }
+
+		cudaMemcpy(sorted_x1_leafs, voxel_list, sizeof(kd_leaf_sort) * num_leaf_voxels, cudaMemcpyHostToHost);
 		merge_sort(sorted_x1_leafs, w_list, num_leaf_voxels, SORT_X1_TAG);
 
 		sorted_y0_leafs = (kd_leaf_sort*)malloc(sizeof(kd_leaf_sort) * num_leaf_voxels);
+		if (!sorted_y0_leafs) { printf("malloc fail"); return 0; }
+
 		cudaMemcpy(sorted_y0_leafs, voxel_list, sizeof(kd_leaf_sort) * num_leaf_voxels, cudaMemcpyHostToHost);
 		merge_sort(sorted_y0_leafs, w_list, num_leaf_voxels, SORT_Y0_TAG);
 		sorted_y1_leafs = (kd_leaf_sort*)malloc(sizeof(kd_leaf_sort) * num_leaf_voxels);
+		if (!sorted_y1_leafs) { printf("malloc fail"); return 0; }
+
 		cudaMemcpy(sorted_y1_leafs, voxel_list, sizeof(kd_leaf_sort) * num_leaf_voxels, cudaMemcpyHostToHost);
 		merge_sort(sorted_y1_leafs, w_list, num_leaf_voxels, SORT_Y1_TAG);
 
 		sorted_z0_leafs = (kd_leaf_sort*)malloc(sizeof(kd_leaf_sort) * num_leaf_voxels);
+		if (!sorted_z0_leafs) { printf("malloc fail"); return 0; }
+
 		cudaMemcpy(sorted_z0_leafs, voxel_list, sizeof(kd_leaf_sort) * num_leaf_voxels, cudaMemcpyHostToHost);
 		merge_sort(sorted_z0_leafs, w_list, num_leaf_voxels, SORT_Z0_TAG);
 		sorted_z1_leafs = (kd_leaf_sort*)malloc(sizeof(kd_leaf_sort) * num_leaf_voxels);
+		if (!sorted_z1_leafs) { printf("malloc fail"); return 0; }
+
 		cudaMemcpy(sorted_z1_leafs, voxel_list, sizeof(kd_leaf_sort) * num_leaf_voxels, cudaMemcpyHostToHost);
 		merge_sort(sorted_z1_leafs, w_list, num_leaf_voxels, SORT_Z1_TAG);
-
 		for (T_uint i = 0; i < num_leaf_voxels; i++) {
 			indexed_leafs[sorted_x0_leafs[i].tri_list_index].sorted_x0_index = i;
 			indexed_leafs[sorted_y0_leafs[i].tri_list_index].sorted_y0_index = i;

@@ -9,6 +9,21 @@ int vector_log2(u64 value) {
     value |= value >> 32;
     return tab64[((u64)((value - (value >> 1)) * 0x07EDD5E59A4E28C2)) >> 58];
 }
+
+float vector_norm(float scalor){
+    float invrs_sqrt = scalor;
+    float invrs_sqrt_half = 0.5f * invrs_sqrt;
+    union { float x; s64 i; } u;
+    u.x = invrs_sqrt_half;
+    // u.i = typeid(T) == typeid(float) ? 0x5f375a86 - (u.i >> 1) : 0x5FE6EB50C7B537A9 - (u.i >> 1);
+    u.i = 0x5f375a86 - (u.i >> 1);
+    /* The next line can be repeated any number of times to increase accuracy */
+    for (int i = 0; i < 8; i++) {
+        u.x = u.x * (1.5f - invrs_sqrt_half * u.x * u.x);
+    }
+    //invrs_sqrt = 
+    return u.x;
+}
 void VEC4<T_fp>::rotate(VEC4<VEC4<T_fp>*>*cur_rot, VEC4<T_fp>*cur_vec, VEC4<T_fp>*new_vec, int reverse) {
     //quaternion Multiply if we are doing new rotation
     if (new_vec) {
@@ -31,9 +46,9 @@ void VEC4<T_fp>::rotate(VEC4<VEC4<T_fp>*>*cur_rot, VEC4<T_fp>*cur_vec, VEC4<T_fp
         cur_rot->z->j = (2 * cur_vec->j * cur_vec->k + 2 * cur_vec->i * cur_vec->w);
         cur_rot->z->k = (1 - 2 * cur_vec->i * cur_vec->i - 2 * cur_vec->j * cur_vec->j);
     }
-    T_fp temp_x = x, temp_y = y, temp_z = z;
+    T_fp temp_x = x * reverse, temp_y = y * reverse, temp_z = z * reverse;
     //do the roation of the vector
-    x = temp_x * cur_rot->x->i + temp_y * cur_rot->x->j + temp_z * cur_rot->x->k;
-    y = temp_x * cur_rot->y->i + temp_y * cur_rot->y->j + temp_z * cur_rot->y->k;
-    z = temp_x * cur_rot->z->i + temp_y * cur_rot->z->j + temp_z * cur_rot->z->k;
+    x = (temp_x * cur_rot->x->i + temp_y * cur_rot->x->j + temp_z * cur_rot->x->k);
+    y = (temp_x * cur_rot->y->i + temp_y * cur_rot->y->j + temp_z * cur_rot->y->k);
+    z = (temp_x * cur_rot->z->i + temp_y * cur_rot->z->j + temp_z * cur_rot->z->k);
 }
