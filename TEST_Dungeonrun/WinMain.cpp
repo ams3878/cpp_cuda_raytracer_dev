@@ -86,11 +86,11 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance,
         QueryPerformanceFrequency(&perf);
         performance_frequency = (float)perf.QuadPart;
     }
-    int model_select = 1;
+    int model_select = 0;
     switch(model_select){
     case 0:
         //BIG BOY RABBIT
-        read_ply("dump23.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 1);
+        read_ply("rabbit_70k.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 1);
         break;
     case 1:
         //HUGE DRAGON BOI
@@ -99,6 +99,14 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance,
     case 2:
         //HUGE BUDDHA BOU
         read_ply("happy_vrip_mod.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 0);
+        break;
+    case 3:
+        //HUGE BUDDHA BOU
+        read_ply("tester.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 2);
+        break;
+    case 4:
+        //test ply read
+        read_ply("3_walls.ply", &points_for_trixels, &tot_num_trixels, &kd_leaf_list, &vertices_for_trixels, &num_trixel_vert, 3);
         break;
     }   
 
@@ -145,7 +153,7 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance,
     Object* obj2 = new Object(trixel_list);
 
     main_cam->add_object(obj1);
-   // main_cam->add_object(obj2);
+    main_cam->add_object(obj2);
 
 
     //Quaternion s = Quaternion(200000000);
@@ -177,52 +185,57 @@ int CALLBACK WinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE hPrevInstance,
             }
             if (is_click_hold(BUTTON_R)) {
                 (*g_input).set_quat((T_fp)0.0, (T_fp)0.09950371902099893, (T_fp)0.0, (T_fp)0.9950371902099893);
-                main_cam->transform(g_input, ROTATE_TRI_PY);
+                obj1->transform(g_input, ROTATE_TRI_PY);
             }
             if (is_click_hold(BUTTON_W)) {
                 (*g_input).set_quat(main_cam->o_prop.n.x,  main_cam->o_prop.n.y, main_cam->o_prop.n.z, cam_speed);
-                main_cam->transform(g_input, TRANSLATE_Z);
+                obj1->transform(g_input, TRANSLATE_Z);
             }
             if (is_click_hold(BUTTON_S)) {
                 (*g_input).set_quat(main_cam->o_prop.n.x, main_cam->o_prop.n.y, main_cam->o_prop.n.z, -cam_speed);
-                main_cam->transform(g_input, TRANSLATE_Z);
+                obj1->transform(g_input, TRANSLATE_Z);
             }
             if (is_click_hold(BUTTON_Q)) { // STRAFE LEFT
                 (*g_input).set_quat(main_cam->o_prop.u.x, main_cam->o_prop.u.y, main_cam->o_prop.u.z, cam_speed);
-                main_cam->transform(g_input, TRANSLATE_X);
+                obj1->transform(g_input, TRANSLATE_X);
             }
             if (is_click_hold(BUTTON_E)) {// STRAFE RIGHT
                 (*g_input).set_quat(main_cam->o_prop.u.x, main_cam->o_prop.u.y, main_cam->o_prop.u.z, -cam_speed);
-                main_cam->transform(g_input, TRANSLATE_X);    
+                obj1->transform(g_input, TRANSLATE_X);
             }
             if (is_click_hold(BUTTON_T)) {
                 (*g_input).set_quat((T_fp)0.0, (T_fp)-0.09950371902099893, (T_fp)0.0, (T_fp)0.9950371902099893);
-                main_cam->transform(g_input, ROTATE_TRI_NY);
+                obj1->transform(g_input, ROTATE_TRI_NY);
             }
             cur_tick = 0;
         }
+        obj1->render(main_cam);
+        main_cam->color_pixels(PHONG_COLOR_TAG);
+       // obj2->render(main_cam);
+        //main_cam->color_pixels(PHONG_COLOR_TAG);
 
-        obj1->trixel_list->intersect_trixels(main_cam, render_mode);
-        //obj2->trixel_list->intersect_trixels(main_cam, render_mode);
-
-        main_cam->color_pixels();
         StretchDIBits(hdc, 0, 0, g_render_res.w, g_render_res.h, 0, 0, g_render_res.w, g_render_res.h, (void*)main_cam->h_mem.h_color.c, &g_bitmap_info, DIB_RGB_COLORS, SRCCOPY);
 
         QueryPerformanceCounter(&frame_end_time);
         delta_time = (float)(frame_end_time.QuadPart - frame_begin_time.QuadPart) / performance_frequency;
         frame_begin_time = frame_end_time;
+        bool gogogo = true;
+        //gogogo = false;
+        if (gogogo) {
+            wprintf(L"\x1b[s");
+            printf("Resolution: %d x %d\n", g_render_res.w, g_render_res.h);
+            printf("Last Cuda Error: %s\n", cudaGetErrorString(cudaPeekAtLastError()));
+            printf("FPS: %f \n", 1 / delta_time);
+            printf("CamerPos [x:%f y:%f z:%f] \n", main_cam->o_prop.pos.x, main_cam->o_prop.pos.y, main_cam->o_prop.pos.z);
+            printf("Camera N [x:%f y:%f z:%f] \n", main_cam->o_prop.n.x, main_cam->o_prop.n.y, main_cam->o_prop.n.z);
+            printf("Camera U [x:%f y:%f z:%f] \n", main_cam->o_prop.u.x, main_cam->o_prop.u.y, main_cam->o_prop.u.z);
+            printf("Camera V [x:%f y:%f z:%f] \n", main_cam->o_prop.v.x, main_cam->o_prop.v.y, main_cam->o_prop.v.z);
 
-        wprintf(L"\x1b[s");
-        printf("Resolution: %d x %d\n", g_render_res.w, g_render_res.h);
-        printf("Last Cuda Error: %s\n", cudaGetErrorString(cudaPeekAtLastError()));
-        printf("FPS: %f \n", 1 / delta_time);
-        printf("CamerPos [x:%f y:%f z:%f] \n", main_cam->o_prop.pos.x, main_cam->o_prop.pos.y, main_cam->o_prop.pos.z);
-        printf("Camera N [x:%f y:%f z:%f] \n", main_cam->o_prop.n.x, main_cam->o_prop.n.y, main_cam->o_prop.n.z);
-        printf("Camera U [x:%f y:%f z:%f] \n", main_cam->o_prop.u.x, main_cam->o_prop.u.y, main_cam->o_prop.u.z);
-        printf("Camera V [x:%f y:%f z:%f] \n", main_cam->o_prop.v.x, main_cam->o_prop.v.y, main_cam->o_prop.v.z);
-
-        wprintf(L"\x1b[u");
+            wprintf(L"\x1b[u");
+        }
         cur_tick++;
+        main_cam->color_pixels(SET_COLOR_TAG);
+
     } 
 
     // cudaDeviceReset must be called before exiting in order for profiling and

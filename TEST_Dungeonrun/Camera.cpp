@@ -29,32 +29,34 @@ Camera::Camera(s32 r_w, s32 r_h,
 	o_prop.up.y = up_y;
 	o_prop.up.z = up_z;
 
-	T_fp* temp_n = normalize_Vector<T_fp>(la_x - p_x, la_y - p_y, la_z - p_z);
-	o_prop.n.x = o_prop.n_mod.x = temp_n[0];
-	o_prop.n.y = o_prop.n_mod.y = temp_n[1];
-	o_prop.n.z = o_prop.n_mod.z = temp_n[2];
-	T_fp* temp_up = normalize_Vector<T_fp>(up_x, up_y, up_z);
-	cross_Vector(temp_up, temp_n);
-	cross_Vector(temp_n, temp_up);
-	free(temp_up); temp_up = NULL;
-	T_fp* temp_v = _normalize_Vector(temp_n);
-	free(temp_n); temp_n = NULL;
-	o_prop.v.x = temp_v[0];
-	o_prop.v.y = temp_v[1];
-	o_prop.v.z = temp_v[2];
+	VEC4<T_fp>* temp_n = new VEC4<T_fp>(la_x - p_x, la_y - p_y, la_z - p_z,(T_fp)1.0);
+	normalize_Vector(temp_n);
+	o_prop.n = *temp_n;
+	o_prop.n_mod = *temp_n;
+	VEC4<T_fp>* temp_up = new VEC4<T_fp>(up_x, up_y, up_z, (T_fp)1.0);
+	normalize_Vector(temp_up);
+	temp_up->cross(*temp_n);
+	temp_n->cross(*temp_up);
+	delete(temp_up); 
+	VEC4<T_fp>* temp_v = new VEC4<T_fp>(*temp_n);
+	normalize_Vector(temp_v);
+	delete(temp_n);
+	o_prop.v = *temp_v;
+
 	o_prop.v_mod.x = o_prop.v.x * f_prop.pix.h;
 	o_prop.v_mod.y = o_prop.v.y * f_prop.pix.h;
 	o_prop.v_mod.z = o_prop.v.z * f_prop.pix.h;
-	T_fp* temp_u = normalize_Vector<T_fp>(la_x - p_x, la_y - p_y, la_z - p_z);
-	cross_Vector(temp_v, temp_u);
-	o_prop.u.x = temp_v[0];
-	o_prop.u.y = temp_v[1];
-	o_prop.u.z = temp_v[2];
+	VEC4<T_fp>* temp_u = new VEC4<T_fp>(la_x - p_x, la_y - p_y, la_z - p_z, (T_fp)1.0);
+	normalize_Vector(temp_u);
+
+	temp_v->cross(*temp_u);
+	o_prop.u = *temp_v;
 	o_prop.u_mod.x = o_prop.u.x * f_prop.pix.w;
 	o_prop.u_mod.y = o_prop.u.y * f_prop.pix.w;
 	o_prop.u_mod.z = o_prop.u.z * f_prop.pix.w;
-	free(temp_u); temp_u = NULL;
-	free(temp_v); temp_v = NULL;
+	delete(temp_u);
+	delete(temp_v);
+
 
 	T_fp adjust_y = (T_fp)(f_prop.res.h >> 1); T_fp adjust_x = (T_fp)(f_prop.res.w >> 1);
 	if (!(f_prop.res.h & (u64)1)) { adjust_y -= .5; } //move vpd down half pixel if even
@@ -67,6 +69,7 @@ Camera::Camera(s32 r_w, s32 r_h,
 	o_prop.rotation_help_array = (VEC3<T_fp>**)malloc(sizeof(VEC3<T_fp>*) * 3);
 	r_prop.draw_distance = 400;
 	r_prop.sample_rate = 0;
+	r_prop.background_color = VEC4<T_uint>(240, 130, 0, 0);
 	cudaMalloc((void**)&h_mem.rad.r, sizeof(T_fp) * f_prop.res.count);
 	cudaMalloc((void**)&h_mem.rad.g, sizeof(T_fp) * f_prop.res.count);
 	cudaMalloc((void**)&h_mem.rad.b, sizeof(T_fp) * f_prop.res.count);
@@ -125,6 +128,9 @@ cudaError_t Camera::add_object(Object* new_object) {
 		object_list[num_objects - 1] = new_object;
 	}
 
+	new_object->init_face = new VEC4<T_fp>(-o_prop.pos.x, -o_prop.pos.y, -o_prop.pos.z, (T_fp)1.0);
+	new_object->cur_face = new VEC4<T_fp>(-o_prop.pos.x, -o_prop.pos.y, -o_prop.pos.z, (T_fp)1.0);
+
 	new_object->quat = new Quaternion(o_prop.quat);
 
 	switch (new_object->getTag()) {
@@ -151,6 +157,10 @@ cudaError_t Camera::init_camera_trixel_data(Trixel* t, s64 num_trixels) {
 	cudaMemcpy(d_trixels, &(h_trixels), sizeof(trixel_memory), cudaMemcpyHostToDevice);
 	return init_camera_trixel_device_memory(t, this);
 }
+cudaError_t Camera::render() {
+	cudaError_t cuda_err;
+	return cuda_err;
+}
 
 cudaError_t Camera::init_camera_voxel_data(Trixel* t, s64 num_voxels) {
 	cudaError_t cuda_err;
@@ -158,15 +168,15 @@ cudaError_t Camera::init_camera_voxel_data(Trixel* t, s64 num_voxels) {
 	h_voxels.obj_center.x = (T_fp)0.0;
 	h_voxels.obj_center.y = (T_fp)0.0;
 	h_voxels.obj_center.z = (T_fp)0.0;
-	T_fp* temp_n = normalize_Vector<T_fp>(o_prop.pos.x - h_voxels.obj_center.x, o_prop.pos.y - h_voxels.obj_center.y, o_prop.pos.z - h_voxels.obj_center.z);
-	h_voxels.init_face = -VEC4<T_fp>(temp_n);
+	VEC4<T_fp> temp_n = VEC4<T_fp>(-o_prop.pos.x, -o_prop.pos.y, -o_prop.pos.z, (T_fp)1.0);
+	h_voxels.init_face = temp_n;
 	memcpy(&h_voxels.n, &h_voxels.init_face, sizeof(VEC4<T_fp>));
 	memcpy(&h_voxels.cur_transform, &h_voxels.init_face, sizeof(VEC4<T_fp>));
-
+	/*
 	T_fp* temp_up = normalize_Vector<T_fp>((T_fp)0.0, (T_fp)1.0, (T_fp)0.0);
 	
-	cross_Vector(temp_up, temp_n);
-	cross_Vector(temp_n, temp_up);
+	//cross_Vector(temp_up, temp_n);
+	//cross_Vector(temp_n, temp_up);
 	free(temp_up); temp_up = NULL;
 	T_fp* temp_v = _normalize_Vector(temp_n);
 	free(temp_n); temp_n = NULL;
@@ -176,7 +186,7 @@ cudaError_t Camera::init_camera_voxel_data(Trixel* t, s64 num_voxels) {
 	h_voxels.u = VEC4<T_fp>(temp_v);
 	free(temp_u); temp_u = NULL;	free(temp_v); temp_v = NULL;
 
-
+	*/
 	cudaMalloc((void**)&h_voxels.s1, sizeof(T_fp) * num_voxels);
 	cudaMalloc((void**)&h_voxels.s2, sizeof(T_fp) * num_voxels);
 
@@ -211,11 +221,11 @@ cudaError_t Camera::transform(Input* input, volatile u8 transform_select) {
 	case ROTATE_TRI_PY:
 	case ROTATE_TRI_NY:
 		//**TODO** change from firs to arbitrary
-		cuda_err = transform_camera_voxel_device_memory(this, object_list[0]->trixel_list, tv, q, transform_select);
+		//cuda_err = transform_camera_voxel_device_memory(this, object_list[0]->trixel_list, tv, q, transform_select);
 		break;
 	};
 	return cuda_err;
 };
-cudaError_t Camera::color_pixels() { return color_camera_device(this); }
+cudaError_t Camera::color_pixels(u8 sel) { return color_camera_device(this, sel); }
 
 #endif

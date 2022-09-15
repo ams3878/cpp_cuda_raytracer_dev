@@ -10,7 +10,7 @@
 #include <stdio.h>
 
 class Trixel;
-cudaError_t intersect_trixels_device(Trixel* t, Camera* c, u32 mode);
+cudaError_t intersect_trixels_device(Trixel* t, Camera* c, Quaternion* q, u32 mode);
 extern "C" cudaError_t init_trixels_device_memory(Trixel* t);
 
 
@@ -61,6 +61,7 @@ public:
 		Color d_color;
 		VEC3_CUDA<T_fp> d_n;
 		VEC3_CUDA<T_fp>** rotate_helper_array;
+		VEC3<T_fp> zero_offset;
 		trixel_memory() : d_color(), d_n(), d_edges(), h_p1(), d_p1(), rotate_helper_array(NULL) {}
 	}h_mem;void* d_mem;
 	struct kd_tree {
@@ -464,10 +465,14 @@ public:
 			}
 		}
 		free(indexed_leafs);
+		h_mem.zero_offset = VEC3<T_fp>(
+			(sorted_x1_leafs[num_trixels - 1].x1 - sorted_x0_leafs[0].x0) / 2,
+			(sorted_y1_leafs[num_trixels - 1].y1 - sorted_y0_leafs[0].y0) / 2,
+			(sorted_z1_leafs[num_trixels - 1].z1 - sorted_z0_leafs[0].z0) / 2);
 		return 0;
 	}
-	cudaError_t intersect_trixels(Camera* c, u32 m) {
-		return intersect_trixels_device(this, c, m);	
+	cudaError_t intersect_trixels(Camera* c, Quaternion* q, u32 m) {
+		return intersect_trixels_device(this, c,q, m);	
 	}
 
 };

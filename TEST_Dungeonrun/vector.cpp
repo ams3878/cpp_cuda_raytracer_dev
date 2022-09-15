@@ -24,6 +24,17 @@ float vector_norm(float scalor){
     //invrs_sqrt = 
     return u.x;
 }
+//template <typename T>
+T_fp VEC3<T_fp>::dot(VEC3<T_fp> b) {
+    return x * b.x + y * b.y + z * b.z;
+}
+void VEC4<T_fp>::cross(VEC4<T_fp> b) {
+    T_fp t0 = y * b.z - z * b.y;
+    T_fp t1 = z * b.x - x * b.z;
+    T_fp t2 = x * b.y - y * b.x;
+    x = t0; y = t1; z = t2;
+};
+
 void VEC4<T_fp>::rotate(VEC4<VEC4<T_fp>*>*cur_rot, VEC4<T_fp>*cur_vec, VEC4<T_fp>*new_vec, int reverse) {
     //quaternion Multiply if we are doing new rotation
     if (new_vec) {

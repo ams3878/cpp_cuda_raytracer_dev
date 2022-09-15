@@ -10,6 +10,8 @@
 class Trixel;
 class Input;
 class Object;
+constexpr u8 SET_COLOR_TAG = 1;
+constexpr u8 PHONG_COLOR_TAG = 2;
 class Camera
 {
 	cudaError_t init_camera_trixel_data(Trixel* t, s64 num_trixels);
@@ -42,6 +44,7 @@ public:
 	struct render_properites {
 		T_fp draw_distance;
 		int sample_rate;
+		VEC4<T_uint> background_color;
 		render_properites() :sample_rate(0), draw_distance(400) {}
 	}r_prop;
 	struct pixel_memory {
@@ -86,18 +89,17 @@ public:
 		T_fp la_x, T_fp la_y, T_fp la_z,
 		T_fp up_x, T_fp up_y, T_fp up_z
 	);
+	cudaError_t render();
 	cudaError_t add_object(Object* new_object);
-	//ALSO REMBER IF YOU WANT TO DO THIS FOR PRIMITVIES MAKE SURE TO CALL TRANSFORM ON ALL CAMERAS, or else you will move the camera adn not the object
 	cudaError_t transform(Input* input, u8 transform_select);
-
-	cudaError_t color_pixels();
+	cudaError_t color_pixels(u8 color_tag_select);
 	cudaError_t rotate(Quaternion* q, int select);
 };
 
 extern "C" cudaError_t init_camera_device_memory(Camera * c);
 extern "C" cudaError_t init_camera_trixel_device_memory(Trixel * t, Camera * c);
 extern "C" cudaError_t init_camera_voxel_device_memory(Trixel * t, Camera * c);
-extern "C" cudaError_t transform_camera_voxel_device_memory(Camera * c, Trixel * t, VEC4<T_fp>* tv, Quaternion * q,  u8 transform_select);
-extern "C" cudaError_t color_camera_device(Camera * c);
+extern "C" cudaError_t transform_camera_voxel_device_memory(Object * c,  VEC4<T_fp>* tv, Quaternion * q,  u8 transform_select);
+extern "C" cudaError_t color_camera_device(Camera * c, u8 color_tag_select);
 //extern "C" cudaError_t transform_trixels_device(Camera * c, Trixel * t, VEC4<T_fp>* tv, Quaternion * q, u8 transform_select);
 #endif

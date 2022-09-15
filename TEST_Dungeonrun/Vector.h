@@ -2,6 +2,7 @@
 #ifndef VECTOR_H
   #define VECTOR_H
 #include "typedefs.h"
+#include "cuda_runtime.h"
 #include <typeinfo>
 
 #define VECTOR_NO_TAG 0
@@ -12,7 +13,6 @@
   template <typename T>  T* normalize_Vector(T vx, T vy, T vz);
 #define _normalize_Vector(v) normalize_Vector<T_fp>(v[0],v[1],v[2]);
   template <typename T> T dot_Vector(T* vec_a, T* vec_b);
-  template <typename T> int cross_Vector(T* vec_a, T* vec_b);
   template <typename T> T vector_normsq(T* vec);
   int vector_log2(T_uint val);
 
@@ -39,7 +39,7 @@
           //z[0] = (T)0.0;
       };
       template <typename h_T>
-      void device_rotate(h_T* rotation_matrix, T_uint m_index,  int reverse); //-1 to reverse 1 to not everything else underfined
+      __device__ void device_rotate(h_T* rotation_matrix, T_uint m_index,  int reverse); //-1 to reverse 1 to not everything else underfined
   };
   template <typename T>
   struct VEC3 {
@@ -54,12 +54,15 @@
           y = temp_x * qy.i + temp_y * qy.j + temp_z * qy.k;
           z = temp_x * qz.i + temp_y * qz.j + temp_z * qz.k;
       };
+      void operator=(VEC3<T> rhs) { x = rhs.x; y = rhs.y; z = rhs.z;  }
+      VEC3<T> operator-(VEC3<T> rhs) { return VEC3<T>((x) - (rhs.x), (y) - (rhs.y), (z) - (rhs.z)); };
+      T dot(VEC3<T> b);
       template <typename h_T>
-      void device_rotate(h_T* rotation_matrix, T_uint index);
+      __device__ void device_rotate(h_T* rotation_matrix, T_uint index);
 
   };
   template <typename T>
-  struct VEC4 : VEC3<T> {
+ struct VEC4 : VEC3<T> {
       union { T w; T t; T dt; T d; };
       VEC4() : VEC3<T>(), w((T)0) {};
       VEC4(T _x, T _y, T _z, T _w) : VEC3<T>(_x,_y,_z) { w = _w; };
@@ -69,37 +72,38 @@
       VEC4(const u8 arbitrary_null_arg);
       operator T() {
           T* a = (T*)malloc(sizeof(T) * 4);
-          a[0] = x; a[1] = y; a[2] = z; a[3] + 4;
+          a[0] = x; a[1] = y; a[2] = z; a[3] = w;
           return *a;
       }
-      //__device__ VEC4<T> d_VEC4() { ; };
-     // __device__ VEC4<T> d_VEC4(T _x, T _y, T _z, T _w) { ; };
+
       template <typename h_T>
-      void device_rotate(h_T qx, h_T qy, h_T qz);
-      //template <typename h_T>
+      __device__ void device_rotate(h_T qx, h_T qy, h_T qz);
       void rotate(VEC4<VEC4<T_fp>*>* rot_m, VEC4<T_fp>* cur_vec, VEC4<T_fp>* new_vec, int reverse);
+      void cross(VEC4<T>);
       void de_normalize() {
           x *= w;
           y *= w;
           z *= w;
           w = (T)1.0;
       }
-      void operator-=(VEC4<T> rhs) {
+      __host__ __device__ void operator-=(VEC4<T> rhs) {
           x = (x * w) - (rhs.x * rhs.w);
           y = (y * w) - (rhs.y * rhs.w);
           z = (z * w) - (rhs.z * rhs.w);
           w = (T)1.0;
       };
-      void operator+=(VEC4<T> rhs) {
+      __host__ __device__ void operator+=(VEC4<T> rhs) {
           x = (x * w) + (rhs.x * rhs.w);
           y = (y * w) + (rhs.y * rhs.w);
           z = (z * w) + (rhs.z * rhs.w);
           w = (T)1.0;
       };
+       //__host__ __device__ void operator=(VEC3<T> rhs) { x = rhs.x; y = rhs.y; z = rhs.z; w = (T)1.0; }
+       //void operator=(VEC4<T> rhs) { x = rhs.x; y = rhs.y; z = rhs.z; w = rhs.w; }
+       __host__ __device__ void operator=(const VEC4<T> &rhs) { x = rhs.x; y = rhs.y; z = rhs.z; w = rhs.w; }
+
       void negate() { x = -x; y = -y; z = -z; }
-      VEC4<T> operator-() {
-          return VEC4<T>(-x, -y, -z, w);
-      };
+      VEC4<T> operator-() {  return VEC4<T>(-x, -y, -z, w);   };
       VEC4<T> operator-(VEC4<T> rhs) {
           return VEC4<T>(
               (x * w) - (rhs.x * rhs.w),
@@ -110,7 +114,7 @@
 
   float vector_norm(float scalor);
   template <typename T>
-  void normalize_Vector(VEC4<T>* v) {//both v and nv must already be intialized, if both same in place normalize
+  void normalize_Vector(VEC4<T>* v) {
       T s = v->x * v->x + v->y * v->y + v->z * v->z;//this cant be negative     
       s = vector_norm(s);
       v->x *= s;
@@ -119,7 +123,7 @@
       v->w = 1/s;
   }
   template <typename T>
-  T* normalize_Vector(T vx, T vy, T vz, T v4) {//both v and nv must already be intialized, if both same in place normalize
+  T* normalize_Vector(T vx, T vy, T vz, T v4) {
       T s = vx * vx + vy * vy + vz * vz + v4 * v4;//this cant be negative     
       s = vector_norm(s);
       T* temp = (T*)malloc(sizeof(T) * 4);
@@ -147,14 +151,6 @@
       return vec_a[0] * vec_b[0] + vec_a[1] * vec_b[1] + vec_a[2] * vec_b[2];
   }
 
-  template <typename T>
-  int cross_Vector(T* vec_a, T* vec_b) {//not defined if DEFAULT_SPACE is not 3
-      T t0 = vec_a[1] * vec_b[2] - vec_a[2] * vec_b[1];
-      T t1 = vec_a[2] * vec_b[0] - vec_a[0] * vec_b[2];
-      T t2 = vec_a[0] * vec_b[1] - vec_a[1] * vec_b[0];
-      vec_a[0] = t0; vec_a[1] = t1; vec_a[2] = t2;
-      return 0;
-  }
 
   template <typename T>
   T vector_normsq(T* vec) {
