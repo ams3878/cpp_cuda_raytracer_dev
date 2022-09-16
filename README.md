@@ -1,4 +1,6 @@
 # cpp_cuda_raytracer_dev
+**Warning: The code base is not currently meant for human consumption (readability/maintainabity). If you would like help understanding or going through this solution, I'd be more than happy to answer questions or even walk though the code with you. Just get in touch.**
+
 Render / Animation Engine
 
 Functionality / Algorithms:
